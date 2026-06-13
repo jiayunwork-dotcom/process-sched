@@ -11,6 +11,9 @@ Thumbs.db
 *.log
 logs/
 
+# Angular
+.angular/
+
 # Node.js
 node_modules/
 dist/
