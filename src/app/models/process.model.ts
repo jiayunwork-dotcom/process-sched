@@ -64,6 +64,11 @@ export interface SchedulerStats {
   contextSwitches: number;
 }
 
+export interface VruntimePoint {
+  time: number;
+  vruntime: number;
+}
+
 export interface SchedulerResult {
   ganttBlocks: Map<number, GanttBlock[]>;
   cpuTimeline: (number | null)[];
@@ -71,6 +76,7 @@ export interface SchedulerResult {
   processes: Map<number, Process>;
   stats: SchedulerStats;
   totalTime: number;
+  vruntimeHistory?: Map<number, VruntimePoint[]>;
 }
 
 export type AlgorithmType = 'fcfs' | 'sjf' | 'srtf' | 'rr' | 'priority' | 'mlfq' | 'cfs';

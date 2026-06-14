@@ -1,5 +1,5 @@
 import { Injectable } from '@angular/core';
-import { Process, AlgorithmConfig, SchedulerResult, GanttBlock, QueueSnapshot, SchedulerStats } from '../models/process.model';
+import { Process, AlgorithmConfig, SchedulerResult, GanttBlock, QueueSnapshot, SchedulerStats, VruntimePoint } from '../models/process.model';
 import { niceToWeight } from '../utils/helpers';
 
 @Injectable({
@@ -12,10 +12,18 @@ export class SchedulerService {
     const ganttBlocks = new Map<number, GanttBlock[]>();
     const cpuTimeline: (number | null)[] = [];
     const queueSnapshots: QueueSnapshot[] = [];
+    let vruntimeHistory: Map<number, VruntimePoint[]> | undefined;
     
     processes.forEach(p => {
       ganttBlocks.set(p.pid, []);
     });
+    
+    if (config.type === 'cfs') {
+      vruntimeHistory = new Map();
+      processes.forEach(p => {
+        vruntimeHistory!.set(p.pid, []);
+      });
+    }
     
     const contextSwitchOverhead = config.contextSwitchOverhead ?? 1;
     
@@ -217,6 +225,25 @@ export class SchedulerService {
       
       this.takeSnapshot(queueSnapshots, currentTime, readyQueue, waitingQueue, snapshotRunning, mlfqQueues, cfsReadyList, config);
       
+      if (vruntimeHistory) {
+        processes.forEach((proc, pid) => {
+          if (proc.status !== 'not_arrived' && proc.status !== 'completed') {
+            vruntimeHistory!.get(pid)!.push({
+              time: currentTime,
+              vruntime: proc.vruntime
+            });
+          } else if (proc.status === 'completed') {
+            const history = vruntimeHistory!.get(pid)!;
+            if (history.length === 0 || history[history.length - 1].time < currentTime) {
+              history.push({
+                time: currentTime,
+                vruntime: proc.vruntime
+              });
+            }
+          }
+        });
+      }
+      
       if (config.type === 'mlfq' && config.mlfqBoostInterval) {
         mlfqBoostCounter++;
         if (mlfqBoostCounter >= config.mlfqBoostInterval) {
@@ -243,7 +270,8 @@ export class SchedulerService {
       queueSnapshots,
       processes,
       stats,
-      totalTime: currentTime
+      totalTime: currentTime,
+      vruntimeHistory
     };
   }
   

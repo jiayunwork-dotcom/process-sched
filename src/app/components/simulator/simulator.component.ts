@@ -9,6 +9,7 @@ import { GanttChartComponent } from '../gantt-chart/gantt-chart.component';
 import { ReadyQueueComponent } from '../ready-queue/ready-queue.component';
 import { PlaybackControlComponent, PlayMode } from '../playback-control/playback-control.component';
 import { StatsPanelComponent } from '../stats-panel/stats-panel.component';
+import { VruntimeChartComponent } from '../vruntime-chart/vruntime-chart.component';
 
 import { Process, AlgorithmConfig, SchedulerResult, QueueSnapshot } from '../../models/process.model';
 import { SchedulerService } from '../../services/scheduler.service';
@@ -25,7 +26,8 @@ import { ProcessService } from '../../services/process.service';
     GanttChartComponent,
     ReadyQueueComponent,
     PlaybackControlComponent,
-    StatsPanelComponent
+    StatsPanelComponent,
+    VruntimeChartComponent
   ],
   template: `
     <div class="simulator-container">
@@ -46,15 +48,21 @@ import { ProcessService } from '../../services/process.service';
             <span>🔀 多算法对比</span>
           </div>
           <p class="hint">选择 2-4 种算法进行对比模拟</p>
+          <p class="mode-hint" [class.locked]="mode !== 'idle'">
+            <span *ngIf="mode === 'idle'">✓ 可自由选择算法</span>
+            <span *ngIf="mode !== 'idle'">🔒 模拟运行中，请先重置再切换算法</span>
+          </p>
           <div class="compare-algorithms">
-            <label *ngFor="let algo of allAlgorithms">
+            <label *ngFor="let algo of allAlgorithms" class="algo-checkbox-label">
               <input 
                 type="checkbox" 
                 [checked]="compareAlgorithms.includes(algo.type)"
                 (change)="toggleCompareAlgo(algo.type)"
                 [disabled]="mode !== 'idle'"
               />
-              {{ algo.name }}
+              <span class="checkbox-custom"></span>
+              <span class="algo-name">{{ algo.name }}</span>
+              <span class="algo-selected" *ngIf="compareAlgorithms.includes(algo.type)">✓</span>
             </label>
           </div>
         </div>
@@ -86,23 +94,33 @@ import { ProcessService } from '../../services/process.service';
             ></app-gantt-chart>
             
             <div class="bottom-row">
-              <div class="queue-panel">
-                <app-ready-queue
-                  [snapshot]="currentSnapshot"
-                  [processes]="simulationResult?.processes || null"
-                  [algorithmType]="algorithmConfig.type"
-                  [currentTime]="currentTime"
-                  [mlfqTimeSlices]="algorithmConfig.mlfqTimeSlices || [8, 16, 32]"
-                ></app-ready-queue>
+              <div class="bottom-row-upper">
+                <div class="queue-panel">
+                  <app-ready-queue
+                    [snapshot]="currentSnapshot"
+                    [processes]="simulationResult?.processes || null"
+                    [algorithmType]="algorithmConfig.type"
+                    [currentTime]="currentTime"
+                    [mlfqTimeSlices]="algorithmConfig.mlfqTimeSlices || [8, 16, 32]"
+                  ></app-ready-queue>
+                </div>
+                
+                <div class="stats-panel">
+                  <app-stats-panel
+                    *ngIf="simulationResult"
+                    [processes]="processList"
+                    [stats]="simulationResult.stats"
+                  ></app-stats-panel>
+                </div>
               </div>
               
-              <div class="stats-panel">
-                <app-stats-panel
-                  *ngIf="simulationResult"
-                  [processes]="processList"
-                  [stats]="simulationResult.stats"
-                ></app-stats-panel>
-              </div>
+              <app-vruntime-chart
+                *ngIf="simulationResult && algorithmConfig.type === 'cfs' && simulationResult.vruntimeHistory"
+                [vruntimeHistory]="simulationResult.vruntimeHistory"
+                [processes]="processList"
+                [currentTime]="currentTime"
+                class="vruntime-panel"
+              ></app-vruntime-chart>
             </div>
           </ng-container>
           
@@ -215,6 +233,12 @@ import { ProcessService } from '../../services/process.service';
     }
     
     .bottom-row {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .bottom-row-upper {
       display: grid;
       grid-template-columns: 1fr 1.5fr;
       gap: 16px;
@@ -224,10 +248,35 @@ import { ProcessService } from '../../services/process.service';
       min-width: 0;
     }
     
+    .stats-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 16px;
+    }
+    
+    .vruntime-panel {
+      width: 100%;
+    }
+    
     .compare-section .hint {
       font-size: 12px;
       color: #64748b;
-      margin-bottom: 10px;
+      margin-bottom: 6px;
+    }
+    
+    .mode-hint {
+      font-size: 11px;
+      padding: 6px 10px;
+      background: #d1fae5;
+      color: #065f46;
+      border-radius: 6px;
+      margin-bottom: 12px;
+      font-weight: 500;
+    }
+    
+    .mode-hint.locked {
+      background: #fee2e2;
+      color: #991b1b;
     }
     
     .compare-algorithms {
@@ -236,16 +285,82 @@ import { ProcessService } from '../../services/process.service';
       gap: 8px;
     }
     
-    .compare-algorithms label {
+    .algo-checkbox-label {
       display: flex;
       align-items: center;
-      gap: 6px;
+      gap: 8px;
       font-size: 13px;
       cursor: pointer;
+      padding: 8px 10px;
+      background: #f8fafc;
+      border: 2px solid #e2e8f0;
+      border-radius: 8px;
+      transition: all 0.15s ease;
+      position: relative;
+      user-select: none;
     }
     
-    .compare-algorithms input {
-      cursor: pointer;
+    .algo-checkbox-label:hover:not(:has(input:disabled)) {
+      border-color: #a5b4fc;
+      background: #eef2ff;
+    }
+    
+    .algo-checkbox-label:has(input:checked) {
+      border-color: #667eea;
+      background: linear-gradient(135deg, #eef2ff 0%, #faf5ff 100%);
+    }
+    
+    .algo-checkbox-label:has(input:disabled) {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+    
+    .algo-checkbox-label input[type="checkbox"] {
+      position: absolute;
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+    
+    .checkbox-custom {
+      width: 18px;
+      height: 18px;
+      border: 2px solid #cbd5e0;
+      border-radius: 4px;
+      background: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.15s;
+      flex-shrink: 0;
+    }
+    
+    .algo-checkbox-label:has(input:checked) .checkbox-custom {
+      background: #667eea;
+      border-color: #667eea;
+    }
+    
+    .algo-checkbox-label:has(input:checked) .checkbox-custom::after {
+      content: '✓';
+      color: white;
+      font-size: 12px;
+      font-weight: 700;
+    }
+    
+    .algo-name {
+      color: #334155;
+      font-weight: 500;
+      flex: 1;
+    }
+    
+    .algo-checkbox-label:has(input:checked) .algo-name {
+      color: #4338ca;
+    }
+    
+    .algo-selected {
+      color: #667eea;
+      font-weight: 700;
+      font-size: 14px;
     }
     
     .main-content.compare-mode .bottom-row {
