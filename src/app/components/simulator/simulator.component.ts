@@ -93,6 +93,7 @@ import { ProcessService } from '../../services/process.service';
               [currentTime]="currentTime"
               [showMarker]="mode !== 'idle'"
               [timeUnitWidth]="timeUnitWidth"
+              (seekTime)="onSeek($event)"
             ></app-gantt-chart>
             
             <div class="bottom-row">
@@ -137,6 +138,7 @@ import { ProcessService } from '../../services/process.service';
                 [currentTime]="currentTime"
                 [showMarker]="mode !== 'idle'"
                 [timeUnitWidth]="timeUnitWidth"
+                (seekTime)="onSeek($event)"
               ></app-gantt-chart>
             </div>
           </div>
@@ -213,6 +215,18 @@ import { ProcessService } from '../../services/process.service';
       min-width: 0;
     }
     
+    @media (max-width: 960px) {
+      .simulator-container {
+        flex-direction: column;
+      }
+      
+      .left-panel {
+        width: 100% !important;
+        min-width: 0 !important;
+        max-height: none !important;
+      }
+    }
+    
     .left-panel {
       width: 380px;
       min-width: 380px;
@@ -245,6 +259,12 @@ import { ProcessService } from '../../services/process.service';
       display: grid;
       grid-template-columns: 1fr 1.5fr;
       gap: 16px;
+    }
+    
+    @media (max-width: 1200px) {
+      .bottom-row {
+        grid-template-columns: 1fr;
+      }
     }
     
     .vruntime-section {

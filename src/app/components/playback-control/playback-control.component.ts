@@ -1,4 +1,4 @@
-import { Component, Output, EventEmitter, Input } from '@angular/core';
+import { Component, Output, EventEmitter, Input, ViewChild, ElementRef, HostListener, OnChanges, SimpleChanges } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 
@@ -10,20 +10,7 @@ export type PlayMode = 'idle' | 'playing' | 'paused' | 'finished';
   imports: [CommonModule, FormsModule],
   template: `
     <div class="card playback-card">
-      <div class="playback-row">
-        <div class="progress-section">
-          <div class="progress-label">
-            <span>时间: {{ currentTime }} / {{ totalTime }}</span>
-            <span *ngIf="isPlaying" class="status-playing">▶ 运行中</span>
-            <span *ngIf="isPaused" class="status-paused">⏸ 已暂停</span>
-            <span *ngIf="isFinished" class="status-finished">✓ 已完成</span>
-          </div>
-          <div class="progress-bar" (click)="seekTo($event)">
-            <div class="progress-fill" [style.width]="progressPercent + '%'"></div>
-            <div class="progress-handle" [style.left]="progressPercent + '%'"></div>
-          </div>
-        </div>
-        
+      <div class="controls-row">
         <div class="controls-section">
           <button class="btn btn-secondary btn-sm" (click)="onStepBack()" [disabled]="currentTime <= 0 || isPlaying">
             ⏮ 后退
@@ -41,6 +28,46 @@ export type PlayMode = 'idle' | 'playing' | 'paused' | 'finished';
             ↺ 重置
           </button>
         </div>
+        
+        <div class="status-section">
+          <span *ngIf="isPlaying" class="status-playing">▶ 运行中</span>
+          <span *ngIf="isPaused" class="status-paused">⏸ 已暂停</span>
+          <span *ngIf="isFinished" class="status-finished">✓ 已完成</span>
+          <span *ngIf="isIdle" class="status-idle">○ 待开始</span>
+        </div>
+      </div>
+      
+      <div class="slider-row">
+        <div class="time-label time-current">{{ dragTime !== null ? dragTime : currentTime }}</div>
+        <div 
+          class="slider-container"
+          #sliderContainer
+          (mousedown)="onSliderMouseDown($event)"
+          (touchstart)="onSliderTouchStart($event)"
+        >
+          <div class="slider-track">
+            <div class="slider-fill" [style.width]="(dragTime !== null ? (dragTime / totalTime * 100) : progressPercent) + '%'"></div>
+          </div>
+          <div 
+            class="slider-ticks"
+            *ngIf="totalTime > 0"
+          >
+            <div 
+              *ngFor="let tick of sliderTicks" 
+              class="slider-tick"
+              [class.major]="tick.isMajor"
+              [style.left]="(tick.value / totalTime * 100) + '%'"
+            ></div>
+          </div>
+          <div 
+            class="slider-handle"
+            [class.dragging]="isDragging"
+            [style.left]="(dragTime !== null ? (dragTime / totalTime * 100) : progressPercent) + '%'"
+          >
+            <div class="handle-inner"></div>
+          </div>
+        </div>
+        <div class="time-label time-total">{{ totalTime }}</div>
       </div>
       
       <div class="settings-row">
@@ -69,70 +96,13 @@ export type PlayMode = 'idle' | 'playing' | 'paused' | 'finished';
       background: linear-gradient(135deg, #f0f4ff 0%, #faf5ff 100%);
     }
     
-    .playback-row {
-      display: flex;
-      gap: 20px;
-      align-items: center;
-      margin-bottom: 12px;
-    }
-    
-    .progress-section {
-      flex: 1;
-    }
-    
-    .progress-label {
+    .controls-row {
       display: flex;
       justify-content: space-between;
       align-items: center;
-      margin-bottom: 6px;
-      font-size: 13px;
-      color: #475569;
-    }
-    
-    .status-playing {
-      color: #10b981;
-      font-weight: 600;
-      font-size: 12px;
-    }
-    
-    .status-paused {
-      color: #f59e0b;
-      font-weight: 600;
-      font-size: 12px;
-    }
-    
-    .status-finished {
-      color: #6366f1;
-      font-weight: 600;
-      font-size: 12px;
-    }
-    
-    .progress-bar {
-      position: relative;
-      height: 8px;
-      background: #e2e8f0;
-      border-radius: 4px;
-      cursor: pointer;
-      overflow: visible;
-    }
-    
-    .progress-fill {
-      height: 100%;
-      background: linear-gradient(90deg, #667eea, #764ba2);
-      border-radius: 4px;
-      transition: width 0.1s linear;
-    }
-    
-    .progress-handle {
-      position: absolute;
-      top: 50%;
-      transform: translate(-50%, -50%);
-      width: 16px;
-      height: 16px;
-      background: white;
-      border: 3px solid #667eea;
-      border-radius: 50%;
-      box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+      margin-bottom: 16px;
+      gap: 12px;
+      flex-wrap: wrap;
     }
     
     .controls-section {
@@ -140,6 +110,174 @@ export type PlayMode = 'idle' | 'playing' | 'paused' | 'finished';
       gap: 6px;
       align-items: center;
       flex-wrap: wrap;
+    }
+    
+    .status-section {
+      display: flex;
+      align-items: center;
+    }
+    
+    .status-playing {
+      color: #10b981;
+      font-weight: 600;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .status-paused {
+      color: #f59e0b;
+      font-weight: 600;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .status-finished {
+      color: #6366f1;
+      font-weight: 600;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .status-idle {
+      color: #94a3b8;
+      font-weight: 500;
+      font-size: 13px;
+      display: inline-flex;
+      align-items: center;
+      gap: 4px;
+    }
+    
+    .slider-row {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 16px;
+      padding: 0 4px;
+    }
+    
+    .time-label {
+      font-size: 14px;
+      font-weight: 700;
+      color: #334155;
+      min-width: 36px;
+      text-align: center;
+      font-variant-numeric: tabular-nums;
+    }
+    
+    .time-current {
+      color: #667eea;
+      background: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #c7d2fe;
+      box-shadow: 0 1px 3px rgba(102, 126, 234, 0.1);
+    }
+    
+    .time-total {
+      color: #64748b;
+      background: white;
+      padding: 4px 10px;
+      border-radius: 6px;
+      border: 1px solid #e2e8f0;
+    }
+    
+    .slider-container {
+      flex: 1;
+      position: relative;
+      height: 32px;
+      cursor: pointer;
+      touch-action: none;
+      user-select: none;
+    }
+    
+    .slider-track {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 8px;
+      margin-top: -4px;
+      background: #e2e8f0;
+      border-radius: 4px;
+      overflow: hidden;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.06);
+    }
+    
+    .slider-fill {
+      height: 100%;
+      background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+      border-radius: 4px;
+      transition: width 0.05s linear;
+    }
+    
+    .slider-ticks {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      right: 0;
+      height: 8px;
+      margin-top: -4px;
+      pointer-events: none;
+    }
+    
+    .slider-tick {
+      position: absolute;
+      top: 50%;
+      width: 1px;
+      height: 100%;
+      background: rgba(148, 163, 184);
+      opacity: 0.4;
+      transform: translateX(-0.5px);
+    }
+    
+    .slider-tick.major {
+      height: 150%;
+      top: -25%;
+      width: 2px;
+      opacity: 0.7;
+      background: #94a3b8;
+    }
+    
+    .slider-handle {
+      position: absolute;
+      top: 50%;
+      left: 0;
+      width: 0;
+      height: 0;
+      margin-top: -12px;
+      z-index: 10;
+      transition: transform 0.05s ease;
+    }
+    
+    .slider-handle.dragging {
+      transform: scale(1.25);
+      z-index: 20;
+    }
+    
+    .handle-inner {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 22px;
+      height: 22px;
+      margin-left: -11px;
+      background: white;
+      border: 3px solid #667eea;
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(102, 126, 234, 0.35);
+      transition: box-shadow 0.15s ease, border-color 0.15s ease;
+    }
+    
+    .slider-container:hover .handle-inner,
+    .slider-handle.dragging .handle-inner {
+      box-shadow: 0 4px 14px rgba(102, 126, 234, 0.5);
+      border-color: #5a67d8;
     }
     
     .settings-row {
@@ -194,7 +332,7 @@ export type PlayMode = 'idle' | 'playing' | 'paused' | 'finished';
     }
   `]
 })
-export class PlaybackControlComponent {
+export class PlaybackControlComponent implements OnChanges {
   @Input() currentTime = 0;
   @Input() totalTime = 0;
   @Input() mode: PlayMode = 'idle';
@@ -209,9 +347,46 @@ export class PlaybackControlComponent {
   @Output() seek = new EventEmitter<number>();
   @Output() speedChange = new EventEmitter<number>();
   
+  @ViewChild('sliderContainer') sliderContainer!: ElementRef;
+  
   speedOptions = [100, 200, 500, 1000];
   customSpeed = 500;
   currentSpeed = 500;
+  
+  isDragging = false;
+  dragTime: number | null = null;
+  sliderTicks: { value: number; isMajor: boolean }[] = [];
+  
+  ngOnChanges(changes: SimpleChanges): void {
+    if (changes['totalTime']) {
+      this.generateSliderTicks();
+    }
+  }
+  
+  generateSliderTicks(): void {
+    if (this.totalTime <= 0) {
+      this.sliderTicks = [];
+      return;
+    }
+    const ticks: { value: number; isMajor: boolean }[] = [];
+    let step = 1;
+    if (this.totalTime > 100) step = 10;
+    else if (this.totalTime > 50) step = 5;
+    else if (this.totalTime > 20) step = 2;
+    
+    const majorStep = Math.max(step * 5, 5);
+    
+    for (let t = 0; t <= this.totalTime; t += step) {
+      ticks.push({
+        value: t,
+        isMajor: t % majorStep === 0
+      });
+    }
+    if (ticks[ticks.length - 1].value !== this.totalTime) {
+      ticks.push({ value: this.totalTime, isMajor: true });
+    }
+    this.sliderTicks = ticks;
+  }
   
   get isPlaying(): boolean {
     return this.mode === 'playing';
@@ -223,6 +398,10 @@ export class PlaybackControlComponent {
   
   get isFinished(): boolean {
     return this.mode === 'finished';
+  }
+  
+  get isIdle(): boolean {
+    return this.mode === 'idle';
   }
   
   get progressPercent(): number {
@@ -266,13 +445,67 @@ export class PlaybackControlComponent {
     this.speedChange.emit(speed);
   }
   
-  seekTo(event: MouseEvent): void {
-    if (this.isPlaying) return;
-    
-    const bar = event.currentTarget as HTMLElement;
-    const rect = bar.getBoundingClientRect();
-    const percent = (event.clientX - rect.left) / rect.width;
-    const time = Math.round(percent * this.totalTime);
-    this.seek.emit(Math.max(0, Math.min(this.totalTime, time)));
+  private getTimeFromEvent(clientX: number): number {
+    if (!this.sliderContainer || this.totalTime <= 0) return 0;
+    const el = this.sliderContainer.nativeElement as HTMLElement;
+    const rect = el.getBoundingClientRect();
+    const percent = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+    return Math.round(percent * this.totalTime);
+  }
+  
+  onSliderMouseDown(event: MouseEvent): void {
+    if (this.totalTime <= 0) return;
+    event.preventDefault();
+    this.isDragging = true;
+    const time = this.getTimeFromEvent(event.clientX);
+    this.dragTime = time;
+    this.seek.emit(time);
+  }
+  
+  onSliderTouchStart(event: TouchEvent): void {
+    if (this.totalTime <= 0) return;
+    event.preventDefault();
+    this.isDragging = true;
+    const touch = event.touches[0];
+    const time = this.getTimeFromEvent(touch.clientX);
+    this.dragTime = time;
+    this.seek.emit(time);
+  }
+  
+  @HostListener('document:mousemove', ['$event'])
+  onDocumentMouseMove(event: MouseEvent): void {
+    if (!this.isDragging) return;
+    const time = this.getTimeFromEvent(event.clientX);
+    if (time !== this.dragTime) {
+      this.dragTime = time;
+      this.seek.emit(time);
+    }
+  }
+  
+  @HostListener('document:touchmove', ['$event'])
+  onDocumentTouchMove(event: TouchEvent): void {
+    if (!this.isDragging) return;
+    const touch = event.touches[0];
+    const time = this.getTimeFromEvent(touch.clientX);
+    if (time !== this.dragTime) {
+      this.dragTime = time;
+      this.seek.emit(time);
+    }
+  }
+  
+  @HostListener('document:mouseup')
+  onDocumentMouseUp(): void {
+    if (this.isDragging) {
+      this.isDragging = false;
+      this.dragTime = null;
+    }
+  }
+  
+  @HostListener('document:touchend')
+  onDocumentTouchEnd(): void {
+    if (this.isDragging) {
+      this.isDragging = false;
+      this.dragTime = null;
+    }
   }
 }

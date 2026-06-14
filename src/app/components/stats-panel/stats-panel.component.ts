@@ -83,41 +83,87 @@ type SortOrder = 'asc' | 'desc';
       </div>
       
       <div class="charts-section" *ngIf="processes.length > 0">
-        <div class="section-title">等待时间分布</div>
-        <div class="bar-chart">
-          <div 
-            *ngFor="let p of sortedProcesses"
-            class="bar-item"
-          >
-            <div class="bar-label">{{ p.name }}</div>
-            <div class="bar-track">
-              <div 
-                class="bar-fill waiting"
-                [style.width]="(p.waitingTime / maxWaitingTime * 100) + '%'"
-                [style.background]="p.color"
-              ></div>
-            </div>
-            <div class="bar-value">{{ p.waitingTime }}</div>
+        <div class="svg-chart-block">
+          <div class="section-title">📊 等待时间分布（柱状图）</div>
+          <div class="svg-container">
+            <svg [attr.viewBox]="'0 0 ' + waitingChartWidth + ' ' + waitingChartHeight" preserveAspectRatio="xMidYMid meet" class="chart-svg">
+              <g>
+                <text [attr.x]="waitingChartWidth / 2" [attr.y]="22" text-anchor="middle" class="chart-title">各进程等待时间</text>
+                <line [attr.x1]="waitingChartPadding.left" [attr.y1]="waitingChartHeight - waitingChartPadding.bottom" [attr.x2]="waitingChartWidth - waitingChartPadding.right" [attr.y2]="waitingChartHeight - waitingChartPadding.bottom" stroke="#94a3b8" stroke-width="1.5"/>
+                <line [attr.x1]="waitingChartPadding.left" [attr.y1]="waitingChartPadding.top + 20" [attr.x2]="waitingChartPadding.left" [attr.y2]="waitingChartHeight - waitingChartPadding.bottom" stroke="#94a3b8" stroke-width="1.5"/>
+                <text [attr.x]="waitingChartWidth / 2" [attr.y]="waitingChartHeight - 4" text-anchor="middle" class="axis-label-x">进程名称</text>
+                <text [attr.x]="12" [attr.y]="(waitingChartHeight - waitingChartPadding.top - waitingChartPadding.bottom) / 2 + waitingChartPadding.top + 20" text-anchor="middle" class="axis-label-y" transform="rotate(-90, 12, ' + ((waitingChartHeight - waitingChartPadding.top - waitingChartPadding.bottom) / 2 + waitingChartPadding.top + 20) + ')">等待时间</text>
+                <ng-container *ngFor="let tick of waitingYTicks">
+                  <line [attr.x1]="waitingChartPadding.left - 4" [attr.y1]="tick.y" [attr.x2]="waitingChartPadding.left" [attr.y2]="tick.y" stroke="#94a3b8" stroke-width="1"/>
+                  <text [attr.x]="waitingChartPadding.left - 8" [attr.y]="tick.y + 4" text-anchor="end" class="tick-text">{{ tick.value }}</text>
+                  <line [attr.x1]="waitingChartPadding.left" [attr.y1]="tick.y" [attr.x2]="waitingChartWidth - waitingChartPadding.right" [attr.y2]="tick.y" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3"/>
+                </ng-container>
+                <g *ngFor="let bar of waitingBars; let i = index">
+                  <rect 
+                    [attr.x]="bar.x" 
+                    [attr.y]="bar.y" 
+                    [attr.width]="bar.width" 
+                    [attr.height]="bar.height" 
+                    [attr.fill]="bar.color"
+                    class="bar-rect"
+                    rx="3"
+                    (mouseenter)="showBarTooltip($event, bar.label, bar.value + ' 时间单位')"
+                    (mousemove)="updateBarTooltip($event)"
+                    (mouseleave)="hideBarTooltip()"
+                  />
+                  <text [attr.x]="bar.x + bar.width / 2" [attr.y]="bar.y - 6" text-anchor="middle" class="bar-value-text">{{ bar.value }}</text>
+                  <text [attr.x]="bar.x + bar.width / 2" [attr.y]="waitingChartHeight - waitingChartPadding.bottom + 16" text-anchor="middle" class="x-label-text">{{ bar.label }}</text>
+                </g>
+              </g>
+            </svg>
           </div>
         </div>
         
-        <div class="section-title">周转时间对比</div>
-        <div class="bar-chart">
-          <div 
-            *ngFor="let p of sortedProcesses"
-            class="bar-item"
-          >
-            <div class="bar-label">{{ p.name }}</div>
-            <div class="bar-track">
-              <div 
-                class="bar-fill turnaround"
-                [style.width]="(p.turnaroundTime / maxTurnaroundTime * 100) + '%'"
-                [style.background]="p.color"
-              ></div>
-            </div>
-            <div class="bar-value">{{ p.turnaroundTime }}</div>
+        <div class="svg-chart-block">
+          <div class="section-title">📈 周转时间对比（条形图）</div>
+          <div class="svg-container">
+            <svg [attr.viewBox]="'0 0 ' + turnaroundChartWidth + ' ' + turnaroundChartHeight" preserveAspectRatio="xMidYMid meet" class="chart-svg">
+              <g>
+                <text [attr.x]="turnaroundChartWidth / 2" [attr.y]="22" text-anchor="middle" class="chart-title">周转时间对比（降序排列）</text>
+                <line [attr.x1]="turnaroundChartPadding.left" [attr.y1]="turnaroundChartPadding.top + 20" [attr.x2]="turnaroundChartWidth - turnaroundChartPadding.right" [attr.y2]="turnaroundChartPadding.top + 20" stroke="#94a3b8" stroke-width="1.5"/>
+                <line [attr.x1]="turnaroundChartPadding.left" [attr.y1]="turnaroundChartPadding.top + 20" [attr.x2]="turnaroundChartPadding.left" [attr.y2]="turnaroundChartHeight - turnaroundChartPadding.bottom" stroke="#94a3b8" stroke-width="1.5"/>
+                <text [attr.x]="turnaroundChartWidth / 2" [attr.y]="turnaroundChartHeight - 4" text-anchor="middle" class="axis-label-x">周转时间</text>
+                <text [attr.x]="12" [attr.y]="(turnaroundChartHeight - turnaroundChartPadding.top - turnaroundChartPadding.bottom) / 2 + turnaroundChartPadding.top + 20" text-anchor="middle" class="axis-label-y" transform="rotate(-90, 12, ' + ((turnaroundChartHeight - turnaroundChartPadding.top - turnaroundChartPadding.bottom) / 2 + turnaroundChartPadding.top + 20) + ')">进程名称</text>
+                <ng-container *ngFor="let tick of turnaroundXTicks">
+                  <line [attr.x1]="tick.x" [attr.y1]="turnaroundChartPadding.top + 20 + 4" [attr.x2]="tick.x" [attr.y2]="turnaroundChartPadding.top + 20" stroke="#94a3b8" stroke-width="1"/>
+                  <text [attr.x]="tick.x" [attr.y]="turnaroundChartHeight - turnaroundChartPadding.bottom + 16" text-anchor="middle" class="tick-text">{{ tick.value }}</text>
+                  <line [attr.x1]="tick.x" [attr.y1]="turnaroundChartPadding.top + 20" [attr.x2]="tick.x" [attr.y2]="turnaroundChartHeight - turnaroundChartPadding.bottom" stroke="#f1f5f9" stroke-width="1" stroke-dasharray="3,3"/>
+                </ng-container>
+                <g *ngFor="let bar of turnaroundBars; let i = index">
+                  <text [attr.x]="turnaroundChartPadding.left - 8" [attr.y]="bar.y + bar.height / 2 + 4" text-anchor="end" class="y-label-text">{{ bar.label }}</text>
+                  <rect 
+                    [attr.x]="bar.x" 
+                    [attr.y]="bar.y" 
+                    [attr.width]="bar.width" 
+                    [attr.height]="bar.height" 
+                    [attr.fill]="bar.color"
+                    class="bar-rect"
+                    rx="3"
+                    (mouseenter)="showBarTooltip($event, bar.label, bar.value + ' 时间单位')"
+                    (mousemove)="updateBarTooltip($event)"
+                    (mouseleave)="hideBarTooltip()"
+                  />
+                  <text [attr.x]="bar.x + bar.width + 6" [attr.y]="bar.y + bar.height / 2 + 4" text-anchor="start" class="bar-value-text">{{ bar.value }}</text>
+                </g>
+              </g>
+            </svg>
           </div>
         </div>
+      </div>
+      
+      <div 
+        class="bar-tooltip"
+        *ngIf="barTooltipVisible"
+        [style.left]="barTooltipX + 'px'"
+        [style.top]="barTooltipY + 'px'"
+      >
+        <div class="bar-tooltip-title">{{ barTooltipLabel }}</div>
+        <div class="bar-tooltip-value">{{ barTooltipValue }}</div>
       </div>
     </div>
   `,
@@ -188,55 +234,93 @@ type SortOrder = 'asc' | 'desc';
       margin-top: 20px;
     }
     
-    .bar-chart {
-      display: flex;
-      flex-direction: column;
-      gap: 6px;
-      margin-bottom: 16px;
+    .svg-chart-block {
+      margin-bottom: 24px;
     }
     
-    .bar-item {
-      display: flex;
-      align-items: center;
-      gap: 10px;
+    .svg-chart-block:last-child {
+      margin-bottom: 0;
     }
     
-    .bar-label {
-      width: 50px;
-      font-size: 12px;
+    .svg-container {
+      width: 100%;
+      min-width: 360px;
+      background: #fafbfc;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 8px;
+      box-sizing: border-box;
+    }
+    
+    .chart-svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+    
+    .chart-title {
+      font-size: 13px;
+      font-weight: 700;
+      fill: #334155;
+    }
+    
+    .axis-label-x,
+    .axis-label-y {
+      font-size: 11px;
       font-weight: 600;
-      color: #475569;
-      text-align: right;
+      fill: #64748b;
     }
     
-    .bar-track {
-      flex: 1;
-      height: 20px;
-      background: #f1f5f9;
-      border-radius: 4px;
-      overflow: hidden;
+    .tick-text {
+      font-size: 10px;
+      fill: #94a3b8;
     }
     
-    .bar-fill {
-      height: 100%;
-      border-radius: 4px;
-      transition: width 0.3s ease;
-    }
-    
-    .bar-fill.waiting {
-      opacity: 0.8;
-    }
-    
-    .bar-fill.turnaround {
-      opacity: 0.6;
-    }
-    
-    .bar-value {
-      width: 50px;
-      font-size: 12px;
+    .x-label-text,
+    .y-label-text {
+      font-size: 11px;
       font-weight: 600;
-      color: #64748b;
-      text-align: left;
+      fill: #475569;
+    }
+    
+    .bar-value-text {
+      font-size: 10px;
+      font-weight: 700;
+      fill: #334155;
+    }
+    
+    .bar-rect {
+      cursor: pointer;
+      transition: filter 0.15s ease;
+      filter: drop-shadow(0 1px 2px rgba(0,0,0,0.1));
+    }
+    
+    .bar-rect:hover {
+      filter: brightness(1.1) drop-shadow(0 2px 4px rgba(0,0,0,0.15));
+    }
+    
+    .bar-tooltip {
+      position: fixed;
+      z-index: 1000;
+      background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
+      color: white;
+      border-radius: 8px;
+      padding: 8px 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.25);
+      font-size: 12px;
+      pointer-events: none;
+      min-width: 120px;
+    }
+    
+    .bar-tooltip-title {
+      font-weight: 700;
+      font-size: 13px;
+      margin-bottom: 2px;
+    }
+    
+    .bar-tooltip-value {
+      color: #e2e8f0;
+      font-size: 11px;
     }
   `]
 })
@@ -260,10 +344,30 @@ export class StatsPanelComponent implements OnChanges {
   maxWaitingTime = 0;
   maxTurnaroundTime = 0;
   
+  waitingChartWidth = 520;
+  waitingChartHeight = 320;
+  waitingChartPadding = { top: 40, right: 30, bottom: 44, left: 60 };
+  waitingBars: { x: number; y: number; width: number; height: number; color: string; value: number; label: string }[] = [];
+  waitingYTicks: { y: number; value: number }[] = [];
+  
+  turnaroundChartWidth = 520;
+  turnaroundChartHeight = 320;
+  turnaroundChartPadding = { top: 40, right: 60, bottom: 44, left: 80 };
+  turnaroundBars: { x: number; y: number; width: number; height: number; color: string; value: number; label: string }[] = [];
+  turnaroundXTicks: { x: number; value: number }[] = [];
+  
+  barTooltipVisible = false;
+  barTooltipX = 0;
+  barTooltipY = 0;
+  barTooltipLabel = '';
+  barTooltipValue = '';
+  
   ngOnChanges(changes: SimpleChanges): void {
     if (changes['processes']) {
       this.sortProcesses();
       this.calculateMaxValues();
+      this.calculateWaitingChart();
+      this.calculateTurnaroundChart();
     }
   }
   
@@ -316,5 +420,143 @@ export class StatsPanelComponent implements OnChanges {
   calculateMaxValues(): void {
     this.maxWaitingTime = Math.max(...this.processes.map(p => p.waitingTime), 1);
     this.maxTurnaroundTime = Math.max(...this.processes.map(p => p.turnaroundTime), 1);
+  }
+  
+  calculateWaitingChart(): void {
+    if (this.processes.length === 0) {
+      this.waitingBars = [];
+      this.waitingYTicks = [];
+      return;
+    }
+    
+    const innerWidth = this.waitingChartWidth - this.waitingChartPadding.left - this.waitingChartPadding.right;
+    const innerHeight = this.waitingChartHeight - this.waitingChartPadding.top - this.waitingChartPadding.bottom - 20;
+    const chartTop = this.waitingChartPadding.top + 20;
+    const chartBottom = this.waitingChartHeight - this.waitingChartPadding.bottom;
+    
+    const n = this.processes.length;
+    const barGap = 12;
+    const barWidth = Math.max(18, Math.min(60, (innerWidth - barGap * (n + 1)) / n));
+    const totalBarWidth = n * barWidth + (n + 1) * barGap;
+    const startX = this.waitingChartPadding.left + (innerWidth - totalBarWidth) / 2 + barGap;
+    
+    this.waitingBars = [];
+    const sortedByPid = [...this.processes].sort((a, b) => a.pid - b.pid);
+    for (let i = 0; i < sortedByPid.length; i++) {
+      const p = sortedByPid[i];
+      const barHeight = Math.max(2, (p.waitingTime / this.maxWaitingTime) * innerHeight);
+      this.waitingBars.push({
+        x: startX + i * (barWidth + barGap),
+        y: chartBottom - barHeight,
+        width: barWidth,
+        height: barHeight,
+        color: p.color,
+        value: p.waitingTime,
+        label: p.name
+      });
+    }
+    
+    this.waitingYTicks = [];
+    const tickCount = 5;
+    const niceMax = this.niceCeil(this.maxWaitingTime);
+    for (let i = 0; i <= tickCount; i++) {
+      const val = Math.round((niceMax / tickCount) * i);
+      const yRatio = 1 - val / niceMax;
+      const y = chartBottom - yRatio * innerHeight;
+      if (y >= chartTop - 4 && y <= chartBottom + 4) {
+        this.waitingYTicks.push({ y, value: val });
+      }
+    }
+  }
+  
+  calculateTurnaroundChart(): void {
+    if (this.processes.length === 0) {
+      this.turnaroundBars = [];
+      this.turnaroundXTicks = [];
+      return;
+    }
+    
+    const innerWidth = this.turnaroundChartWidth - this.turnaroundChartPadding.left - this.turnaroundChartPadding.right;
+    const innerHeight = this.turnaroundChartHeight - this.turnaroundChartPadding.top - this.turnaroundChartPadding.bottom - 20;
+    const chartLeft = this.turnaroundChartPadding.left;
+    const chartTop = this.turnaroundChartPadding.top + 20;
+    const chartRight = chartLeft + innerWidth;
+    
+    const sorted = [...this.processes].sort((a, b) => b.turnaroundTime - a.turnaroundTime);
+    const n = sorted.length;
+    const barGap = 8;
+    const barHeight = Math.max(16, Math.min(40, (innerHeight - barGap * (n + 1)) / n));
+    const totalBarHeight = n * barHeight + (n + 1) * barGap;
+    const startY = chartTop + (innerHeight - totalBarHeight) / 2 + barGap;
+    
+    const niceMax = this.niceCeil(this.maxTurnaroundTime);
+    
+    this.turnaroundBars = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const p = sorted[i];
+      const barWidth = Math.max(2, (p.turnaroundTime / niceMax) * innerWidth);
+      this.turnaroundBars.push({
+        x: chartLeft,
+        y: startY + i * (barHeight + barGap),
+        width: barWidth,
+        height: barHeight,
+        color: p.color,
+        value: p.turnaroundTime,
+        label: p.name
+      });
+    }
+    
+    this.turnaroundXTicks = [];
+    const tickCount = 5;
+    for (let i = 0; i <= tickCount; i++) {
+      const val = Math.round((niceMax / tickCount) * i);
+      const x = chartLeft + (val / niceMax) * innerWidth;
+      if (x >= chartLeft - 4 && x <= chartRight + 4) {
+        this.turnaroundXTicks.push({ x, value: val });
+      }
+    }
+  }
+  
+  private niceCeil(value: number): number {
+    if (value <= 0) return 10;
+    const pow = Math.pow(10, Math.floor(Math.log10(value)));
+    const norm = value / pow;
+    let nice: number;
+    if (norm <= 1) nice = 1;
+    else if (norm <= 2) nice = 2;
+    else if (norm <= 5) nice = 5;
+    else nice = 10;
+    return nice * pow;
+  }
+  
+  showBarTooltip(event: MouseEvent, label: string, value: string): void {
+    this.barTooltipLabel = label;
+    this.barTooltipValue = value;
+    this.barTooltipVisible = true;
+    this.updateBarTooltip(event);
+  }
+  
+  updateBarTooltip(event: MouseEvent): void {
+    const offsetX = 16;
+    const offsetY = 16;
+    const tooltipWidth = 160;
+    const tooltipHeight = 50;
+    
+    let x = event.clientX + offsetX;
+    let y = event.clientY + offsetY;
+    
+    if (x + tooltipWidth > window.innerWidth) {
+      x = event.clientX - tooltipWidth - offsetX;
+    }
+    if (y + tooltipHeight > window.innerHeight) {
+      y = event.clientY - tooltipHeight - offsetY;
+    }
+    
+    this.barTooltipX = Math.max(8, x);
+    this.barTooltipY = Math.max(8, y);
+  }
+  
+  hideBarTooltip(): void {
+    this.barTooltipVisible = false;
   }
 }

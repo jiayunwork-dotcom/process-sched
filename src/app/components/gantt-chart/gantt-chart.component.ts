@@ -1,4 +1,4 @@
-import { Component, Input, OnChanges, SimpleChanges, ElementRef, ViewChild } from '@angular/core';
+import { Component, Input, OnChanges, SimpleChanges, ElementRef, ViewChild, Output, EventEmitter } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { Process, GanttBlock, SchedulerResult } from '../../models/process.model';
 
@@ -40,14 +40,18 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
           <div class="gantt-content" [style.width]="totalWidth + 'px'">
             <div class="time-axis">
               <div class="axis-label">时间</div>
-              <div class="axis-ticks">
+              <div class="axis-ticks" (click)="onTimeAxisClick($event)" #axisTicks>
+                <div class="time-pointer" *ngIf="showMarker && currentTime >= 0" [style.left]="currentTime * timeUnitWidth + 'px'">
+                  <div class="pointer-arrow"></div>
+                </div>
                 <div 
                   *ngFor="let tick of timeTicks" 
                   class="tick"
+                  [class.major]="tick.isMajor"
                   [style.left]="tick.position + 'px'"
                 >
                   <div class="tick-line"></div>
-                  <div class="tick-label">{{ tick.value }}</div>
+                  <div class="tick-label" *ngIf="tick.isMajor">{{ tick.value }}</div>
                 </div>
               </div>
             </div>
@@ -75,6 +79,7 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
                     [style.width]="(block.endTime - block.startTime) * timeUnitWidth + 'px'"
                     [style.background]="block.status === 'running' ? process.color : undefined"
                     (mouseenter)="showTooltip($event, block, process)"
+                    (mousemove)="updateTooltipPosition($event)"
                     (mouseleave)="hideTooltip()"
                   >
                     <span *ngIf="block.endTime - block.startTime >= 3" class="block-label">
@@ -116,6 +121,10 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
       <div 
         class="tooltip"
         *ngIf="tooltipVisible"
+        [class.tooltip-running]="tooltipBlock?.status === 'running'"
+        [class.tooltip-ready]="tooltipBlock?.status === 'ready'"
+        [class.tooltip-waiting]="tooltipBlock?.status === 'waiting'"
+        [class.tooltip-other]="tooltipBlock?.status !== 'running' && tooltipBlock?.status !== 'ready' && tooltipBlock?.status !== 'waiting'"
         [style.left]="tooltipX + 'px'"
         [style.top]="tooltipY + 'px'"
       >
@@ -123,10 +132,13 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
           <span class="color-dot" [style.background]="tooltipProcess?.color"></span>
           {{ tooltipProcess?.name }}
         </div>
-        <div class="tooltip-row">状态: {{ getStatusText(tooltipBlock?.status) }}</div>
-        <div class="tooltip-row">开始: t = {{ tooltipBlock?.startTime }}</div>
-        <div class="tooltip-row">结束: t = {{ tooltipBlock?.endTime }}</div>
-        <div class="tooltip-row">持续: {{ tooltipBlock ? tooltipBlock.endTime - tooltipBlock.startTime : 0 }} 时间单位</div>
+        <div class="tooltip-row">
+          <span class="status-badge" [class.badge-running]="tooltipBlock?.status === 'running'" [class.badge-ready]="tooltipBlock?.status === 'ready'" [class.badge-waiting]="tooltipBlock?.status === 'waiting'" [class.badge-other]="tooltipBlock?.status !== 'running' && tooltipBlock?.status !== 'ready' && tooltipBlock?.status !== 'waiting'">
+            {{ getStatusText(tooltipBlock?.status) }}
+          </span>
+        </div>
+        <div class="tooltip-row">时间区间: [{{ tooltipBlock?.startTime }}, {{ tooltipBlock?.endTime }})</div>
+        <div class="tooltip-row">持续时长: {{ tooltipBlock ? tooltipBlock.endTime - tooltipBlock.startTime : 0 }} 时间单位</div>
       </div>
     </div>
   `,
@@ -222,6 +234,26 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
       flex: 1;
       position: relative;
       height: 36px;
+      cursor: pointer;
+    }
+    
+    .time-pointer {
+      position: absolute;
+      top: 0;
+      width: 0;
+      height: 0;
+      z-index: 15;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+    
+    .pointer-arrow {
+      width: 0;
+      height: 0;
+      border-left: 7px solid transparent;
+      border-right: 7px solid transparent;
+      border-top: 10px solid #ef4444;
+      filter: drop-shadow(0 1px 2px rgba(239, 68, 68, 0.4));
     }
     
     .tick {
@@ -239,13 +271,20 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
       background: #e2e8f0;
     }
     
+    .tick.major .tick-line {
+      width: 2px;
+      background: #cbd5e1;
+      height: 100%;
+    }
+    
     .tick-label {
       position: absolute;
       top: 4px;
       left: 4px;
       font-size: 10px;
-      color: #94a3b8;
+      color: #64748b;
       white-space: nowrap;
+      font-weight: 600;
     }
     
     .process-rows {
@@ -393,28 +432,76 @@ import { Process, GanttBlock, SchedulerResult } from '../../models/process.model
     .tooltip {
       position: fixed;
       z-index: 1000;
-      background: white;
-      border: 1px solid #e2e8f0;
-      border-radius: 8px;
-      padding: 10px 14px;
-      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      border-radius: 10px;
+      padding: 12px 16px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.18);
       font-size: 12px;
       pointer-events: none;
-      min-width: 160px;
+      min-width: 180px;
+      border: 1px solid rgba(0,0,0,0.08);
+      transition: background 0.15s ease;
+    }
+    
+    .tooltip-running {
+      background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);
+    }
+    
+    .tooltip-ready {
+      background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);
+    }
+    
+    .tooltip-waiting {
+      background: linear-gradient(135deg, #f8fafc 0%, #e2e8f0 100%);
+    }
+    
+    .tooltip-other {
+      background: white;
     }
     
     .tooltip-title {
-      font-weight: 600;
-      font-size: 13px;
-      margin-bottom: 6px;
+      font-weight: 700;
+      font-size: 14px;
+      margin-bottom: 8px;
       display: flex;
       align-items: center;
       gap: 6px;
+      color: #1e293b;
+      border-bottom: 1px solid rgba(0,0,0,0.06);
+      padding-bottom: 6px;
     }
     
     .tooltip-row {
-      color: #64748b;
-      margin-bottom: 2px;
+      color: #475569;
+      margin-bottom: 3px;
+      line-height: 1.5;
+    }
+    
+    .status-badge {
+      display: inline-block;
+      padding: 2px 10px;
+      border-radius: 12px;
+      font-size: 11px;
+      font-weight: 600;
+    }
+    
+    .badge-running {
+      background: #10b981;
+      color: white;
+    }
+    
+    .badge-ready {
+      background: #f59e0b;
+      color: white;
+    }
+    
+    .badge-waiting {
+      background: #64748b;
+      color: white;
+    }
+    
+    .badge-other {
+      background: #94a3b8;
+      color: white;
     }
   `]
 })
@@ -425,11 +512,14 @@ export class GanttChartComponent implements OnChanges {
   @Input() timeUnitWidth = 20;
   @Input() rowHeight = 36;
   
+  @Output() seekTime = new EventEmitter<number>();
+  
   @ViewChild('ganttWrapper') ganttWrapper!: ElementRef;
+  @ViewChild('axisTicks') axisTicks!: ElementRef;
   
   processList: Process[] = [];
   totalWidth = 0;
-  timeTicks: { value: number; position: number }[] = [];
+  timeTicks: { value: number; position: number; isMajor: boolean }[] = [];
   cpuSegments: { pid: number | null; start: number; end: number }[] = [];
   
   tooltipVisible = false;
@@ -450,18 +540,14 @@ export class GanttChartComponent implements OnChanges {
   generateTimeTicks(): void {
     if (!this.result) return;
     
-    const ticks: { value: number; position: number }[] = [];
+    const ticks: { value: number; position: number; isMajor: boolean }[] = [];
     const totalTime = this.result.totalTime;
     
-    let step = 1;
-    if (totalTime > 100) step = 10;
-    else if (totalTime > 50) step = 5;
-    else if (totalTime > 20) step = 2;
-    
-    for (let t = 0; t <= totalTime; t += step) {
+    for (let t = 0; t <= totalTime; t++) {
       ticks.push({
         value: t,
-        position: t * this.timeUnitWidth
+        position: t * this.timeUnitWidth,
+        isMajor: t % 5 === 0
       });
     }
     
@@ -527,16 +613,45 @@ export class GanttChartComponent implements OnChanges {
     this.tooltipBlock = block;
     this.tooltipProcess = process;
     this.tooltipVisible = true;
+    this.updateTooltipPosition(event);
+  }
+  
+  updateTooltipPosition(event: MouseEvent): void {
+    const offsetX = 18;
+    const offsetY = 18;
+    const tooltipWidth = 220;
+    const tooltipHeight = 140;
     
-    const x = event.clientX + 15;
-    const y = event.clientY + 15;
+    let x = event.clientX + offsetX;
+    let y = event.clientY + offsetY;
     
-    this.tooltipX = x;
-    this.tooltipY = y;
+    if (x + tooltipWidth > window.innerWidth) {
+      x = event.clientX - tooltipWidth - offsetX;
+    }
+    if (y + tooltipHeight > window.innerHeight) {
+      y = event.clientY - tooltipHeight - offsetY;
+    }
+    
+    this.tooltipX = Math.max(8, x);
+    this.tooltipY = Math.max(8, y);
   }
   
   hideTooltip(): void {
     this.tooltipVisible = false;
+  }
+  
+  onTimeAxisClick(event: MouseEvent): void {
+    if (!this.axisTicks || !this.result) return;
+    
+    const axis = this.axisTicks.nativeElement as HTMLElement;
+    const rect = axis.getBoundingClientRect();
+    const scrollLeft = this.ganttWrapper?.nativeElement?.scrollLeft || 0;
+    const clickX = event.clientX - rect.left + scrollLeft;
+    
+    const time = Math.round(clickX / this.timeUnitWidth);
+    const clampedTime = Math.max(0, Math.min(this.result.totalTime, time));
+    
+    this.seekTime.emit(clampedTime);
   }
   
   zoomIn(): void {
