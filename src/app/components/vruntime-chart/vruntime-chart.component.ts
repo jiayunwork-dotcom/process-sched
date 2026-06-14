@@ -14,25 +14,26 @@ interface VruntimeSeries {
   standalone: true,
   imports: [CommonModule],
   template: `
-    <div class="card vruntime-card" *ngIf="series.length > 0">
-      <div class="card-title">
-        <span>📉 CFS vruntime 变化曲线</span>
-      </div>
-      <p class="hint">X轴: 实际时间 | Y轴: 虚拟运行时间 vruntime</p>
-      
-      <div class="chart-container">
-        <svg [attr.viewBox]="viewBox" class="vruntime-svg" preserveAspectRatio="xMidYMid meet"
-             style="shape-rendering: geometricPrecision;">
-          <defs>
-            <linearGradient id="gridGrad" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
-              <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
-            </linearGradient>
-          </defs>
-          
-          <rect [attr.x]="paddingLeft" [attr.y]="paddingTop" 
-                [attr.width]="chartWidth" [attr.height]="chartHeight"
-                fill="url(#gridGrad)" stroke="#e2e8f0" stroke-width="1" rx="4"
+    <div class="vruntime-wrapper">
+      <div class="card vruntime-card" *ngIf="series.length > 0">
+        <div class="card-title">
+          <span>📉 CFS vruntime 变化曲线</span>
+        </div>
+        <p class="hint">X轴: 实际时间 | Y轴: 虚拟运行时间 vruntime</p>
+        
+        <div class="chart-container">
+          <svg [attr.viewBox]="viewBox" class="vruntime-svg" preserveAspectRatio="xMidYMid meet"
+               style="shape-rendering: geometricPrecision;">
+            <defs>
+              <linearGradient id="gridGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+                <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
+                <stop offset="100%" style="stop-color:#ffffff;stop-opacity:1" />
+              </linearGradient>
+            </defs>
+            
+            <rect [attr.x]="paddingLeft" [attr.y]="paddingTop" 
+                  [attr.width]="chartWidth" [attr.height]="chartHeight"
+                  fill="url(#gridGrad)" stroke="#e2e8f0" stroke-width="1" rx="4"
                 vector-effect="non-scaling-stroke"/>
           
           <g *ngFor="let y of yTicks">
@@ -97,19 +98,57 @@ interface VruntimeSeries {
         </div>
       </div>
     </div>
+    
+    <div class="card vruntime-card empty-state" *ngIf="series.length === 0">
+      <div class="card-title">
+        <span>📉 CFS vruntime 变化曲线</span>
+      </div>
+      <div class="empty-content">
+        <div class="empty-icon">📊</div>
+        <p>暂无 vruntime 数据</p>
+        <p class="empty-hint">运行模拟后将显示各进程的虚拟运行时间变化曲线</p>
+      </div>
+    </div>
+    </div>
   `,
   styles: [`
+    :host {
+      display: block;
+      width: 100%;
+      min-width: 0;
+    }
+    
+    .vruntime-wrapper {
+      width: 100%;
+      min-width: 0;
+    }
+    
     .vruntime-card {
       background: linear-gradient(135deg, #fdf4ff 0%, #faf5ff 100%);
+      border: 2px solid #e9d5ff;
+      border-radius: 12px;
+      padding: 16px;
       width: 100%;
       min-width: 0;
       box-sizing: border-box;
+      margin: 12px 0;
+    }
+    
+    .card-title {
+      font-size: 16px;
+      font-weight: 700;
+      color: #7c3aed;
+      margin-bottom: 4px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
     }
     
     .hint {
-      font-size: 11px;
-      color: #64748b;
+      font-size: 12px;
+      color: #7c3aed;
       margin-bottom: 12px;
+      font-weight: 500;
     }
     
     .chart-container {
@@ -117,17 +156,16 @@ interface VruntimeSeries {
       min-width: 0;
       background: white;
       border-radius: 8px;
-      padding: 8px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      padding: 12px;
+      box-shadow: 0 2px 8px rgba(124, 58, 237, 0.1);
       box-sizing: border-box;
-      overflow-x: auto;
+      overflow: hidden;
+      border: 1px solid #f3e8ff;
     }
     
     .vruntime-svg {
       width: 100%;
-      min-width: 500px;
-      height: 320px;
-      min-height: 320px;
+      height: 280px;
       display: block;
     }
     
@@ -158,6 +196,28 @@ interface VruntimeSeries {
     .legend-name {
       color: #334155;
       font-weight: 500;
+    }
+    
+    .empty-state .empty-content {
+      text-align: center;
+      padding: 40px 20px;
+      color: #94a3b8;
+    }
+    
+    .empty-state .empty-icon {
+      font-size: 48px;
+      margin-bottom: 12px;
+      opacity: 0.6;
+    }
+    
+    .empty-state p {
+      margin: 4px 0;
+      font-size: 14px;
+    }
+    
+    .empty-state .empty-hint {
+      font-size: 12px;
+      opacity: 0.7;
     }
   `]
 })

@@ -96,34 +96,32 @@ import { ProcessService } from '../../services/process.service';
             ></app-gantt-chart>
             
             <div class="bottom-row">
-              <div class="bottom-row-upper">
-                <div class="queue-panel">
-                  <app-ready-queue
-                    [snapshot]="currentSnapshot"
-                    [processes]="simulationResult?.processes || null"
-                    [algorithmType]="algorithmConfig.type"
-                    [currentTime]="currentTime"
-                    [mlfqTimeSlices]="algorithmConfig.mlfqTimeSlices || [8, 16, 32]"
-                  ></app-ready-queue>
-                </div>
-                
-                <div class="stats-panel">
-                  <app-stats-panel
-                    *ngIf="simulationResult"
-                    [processes]="processList"
-                    [stats]="simulationResult.stats"
-                  ></app-stats-panel>
-                </div>
+              <div class="queue-panel">
+                <app-ready-queue
+                  [snapshot]="currentSnapshot"
+                  [processes]="simulationResult?.processes || null"
+                  [algorithmType]="algorithmConfig.type"
+                  [currentTime]="currentTime"
+                  [mlfqTimeSlices]="algorithmConfig.mlfqTimeSlices || [8, 16, 32]"
+                ></app-ready-queue>
               </div>
               
-              <app-vruntime-chart
-                *ngIf="simulationResult && algorithmConfig.type === 'cfs' && simulationResult.vruntimeHistory"
-                [vruntimeHistory]="simulationResult.vruntimeHistory"
-                [processes]="processList"
-                [currentTime]="currentTime"
-                class="vruntime-panel"
-              ></app-vruntime-chart>
+              <div class="stats-panel">
+                <app-stats-panel
+                  *ngIf="simulationResult"
+                  [processes]="processList"
+                  [stats]="simulationResult.stats"
+                ></app-stats-panel>
+              </div>
             </div>
+            
+            <app-vruntime-chart
+              *ngIf="simulationResult && algorithmConfig.type === 'cfs'"
+              [vruntimeHistory]="simulationResult.vruntimeHistory"
+              [processes]="processList"
+              [currentTime]="currentTime"
+              class="vruntime-section"
+            ></app-vruntime-chart>
           </ng-container>
           
           <div class="compare-grid" *ngIf="compareMode && compareResults.length > 1">
@@ -244,29 +242,17 @@ import { ProcessService } from '../../services/process.service';
     }
     
     .bottom-row {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    
-    .bottom-row-upper {
       display: grid;
       grid-template-columns: 1fr 1.5fr;
       gap: 16px;
     }
     
+    .vruntime-section {
+      width: 100%;
+    }
+    
     .queue-panel, .stats-panel {
       min-width: 0;
-    }
-    
-    .stats-panel {
-      display: flex;
-      flex-direction: column;
-      gap: 16px;
-    }
-    
-    .vruntime-panel {
-      width: 100%;
     }
     
     .compare-section .hint {
