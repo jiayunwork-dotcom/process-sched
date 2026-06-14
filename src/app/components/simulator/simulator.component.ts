@@ -69,20 +69,22 @@ import { ProcessService } from '../../services/process.service';
       </div>
       
       <div class="right-panel">
-        <app-playback-control
-          [currentTime]="currentTime"
-          [totalTime]="totalTime"
-          [mode]="mode"
-          [canPlay]="canStartSimulation"
-          (play)="onPlay()"
-          (pause)="onPause()"
-          (stepForward)="onStepForward()"
-          (stepBack)="onStepBack()"
-          (jumpToEnd)="onJumpToEnd()"
-          (reset)="onReset()"
-          (seek)="onSeek($event)"
-          (speedChange)="onSpeedChange($event)"
-        ></app-playback-control>
+        <div class="top-bar">
+          <app-playback-control
+            [currentTime]="currentTime"
+            [totalTime]="totalTime"
+            [mode]="mode"
+            [canPlay]="canStartSimulation"
+            (play)="onPlay()"
+            (pause)="onPause()"
+            (stepForward)="onStepForward()"
+            (stepBack)="onStepBack()"
+            (jumpToEnd)="onJumpToEnd()"
+            (reset)="onReset()"
+            (seek)="onSeek($event)"
+            (speedChange)="onSpeedChange($event)"
+          ></app-playback-control>
+        </div>
         
         <div class="main-content" [class.compare-mode]="compareMode && compareResults.length > 1">
           <ng-container *ngIf="!compareMode || compareResults.length <= 1">
@@ -207,9 +209,10 @@ import { ProcessService } from '../../services/process.service';
   styles: [`
     .simulator-container {
       display: flex;
+      flex-direction: row;
       gap: 16px;
-      height: calc(100vh - 130px);
-      overflow: hidden;
+      width: 100%;
+      min-width: 0;
     }
     
     .left-panel {
@@ -217,19 +220,27 @@ import { ProcessService } from '../../services/process.service';
       min-width: 380px;
       overflow-y: auto;
       padding-right: 4px;
+      flex-shrink: 0;
+      max-height: calc(100vh - 180px);
     }
     
     .right-panel {
       flex: 1;
       display: flex;
       flex-direction: column;
-      overflow: hidden;
+      min-width: 0;
+      gap: 12px;
+    }
+    
+    .top-bar {
+      flex-shrink: 0;
     }
     
     .main-content {
       flex: 1;
       overflow-y: auto;
       padding-right: 4px;
+      min-height: 400px;
     }
     
     .bottom-row {

@@ -21,7 +21,8 @@ interface VruntimeSeries {
       <p class="hint">X轴: 实际时间 | Y轴: 虚拟运行时间 vruntime</p>
       
       <div class="chart-container">
-        <svg [attr.viewBox]="viewBox" class="vruntime-svg" preserveAspectRatio="xMidYMid meet">
+        <svg [attr.viewBox]="viewBox" class="vruntime-svg" preserveAspectRatio="xMidYMid meet"
+             style="shape-rendering: geometricPrecision;">
           <defs>
             <linearGradient id="gridGrad" x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" style="stop-color:#f8fafc;stop-opacity:1" />
@@ -31,14 +32,16 @@ interface VruntimeSeries {
           
           <rect [attr.x]="paddingLeft" [attr.y]="paddingTop" 
                 [attr.width]="chartWidth" [attr.height]="chartHeight"
-                fill="url(#gridGrad)" stroke="#e2e8f0" stroke-width="1" rx="4"/>
+                fill="url(#gridGrad)" stroke="#e2e8f0" stroke-width="1" rx="4"
+                vector-effect="non-scaling-stroke"/>
           
           <g *ngFor="let y of yTicks">
             <line [attr.x1]="paddingLeft" [attr.y1]="y.y"
                   [attr.x2]="paddingLeft + chartWidth" [attr.y2]="y.y"
-                  stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>
+                  stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"
+                  vector-effect="non-scaling-stroke"/>
             <text [attr.x]="paddingLeft - 8" [attr.y]="y.y + 4"
-                  text-anchor="end" font-size="10" fill="#64748b">
+                  text-anchor="end" font-size="11" fill="#64748b">
               {{ y.label }}
             </text>
           </g>
@@ -46,9 +49,10 @@ interface VruntimeSeries {
           <g *ngFor="let x of xTicks">
             <line [attr.x1]="x.x" [attr.y1]="paddingTop"
                   [attr.x2]="x.x" [attr.y2]="paddingTop + chartHeight"
-                  stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"/>
+                  stroke="#e2e8f0" stroke-width="1" stroke-dasharray="3,3"
+                  vector-effect="non-scaling-stroke"/>
             <text [attr.x]="x.x" [attr.y]="paddingTop + chartHeight + 16"
-                  text-anchor="middle" font-size="10" fill="#64748b">
+                  text-anchor="middle" font-size="11" fill="#64748b">
               {{ x.label }}
             </text>
           </g>
@@ -58,26 +62,29 @@ interface VruntimeSeries {
               [attr.points]="getPathPoints(s)"
               fill="none"
               [attr.stroke]="s.color"
-              stroke-width="2"
+              stroke-width="2.5"
               stroke-linejoin="round"
               stroke-linecap="round"
+              vector-effect="non-scaling-stroke"
             />
             <circle
               *ngFor="let p of getSamplePoints(s)"
               [attr.cx]="getX(p.time)"
               [attr.cy]="getY(p.vruntime)"
-              r="2.5"
+              r="3"
               [attr.fill]="s.color"
+              vector-effect="non-scaling-stroke"
             />
           </g>
           
-          <line [attr.x1]="paddingLeft" [attr.y1]="currentMarkerX"
-                [attr.x2]="paddingLeft + chartWidth" [attr.y2]="currentMarkerX"
+          <line [attr.x1]="currentMarkerX" [attr.y1]="paddingTop"
+                [attr.x2]="currentMarkerX" [attr.y2]="paddingTop + chartHeight"
                 *ngIf="currentTime >= 0 && currentTime <= maxTime"
-                stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.7"/>
+                stroke="#ef4444" stroke-width="1.5" stroke-dasharray="4,2" opacity="0.7"
+                vector-effect="non-scaling-stroke"/>
           <text *ngIf="currentTime >= 0 && currentTime <= maxTime"
-                [attr.x]="paddingLeft + chartWidth - 4" [attr.y]="currentMarkerX - 4"
-                text-anchor="end" font-size="10" fill="#ef4444" font-weight="600">
+                [attr.x]="currentMarkerX + 4" [attr.y]="paddingTop + 14"
+                text-anchor="start" font-size="11" fill="#ef4444" font-weight="600">
             t={{ currentTime }}
           </text>
         </svg>
@@ -94,6 +101,9 @@ interface VruntimeSeries {
   styles: [`
     .vruntime-card {
       background: linear-gradient(135deg, #fdf4ff 0%, #faf5ff 100%);
+      width: 100%;
+      min-width: 0;
+      box-sizing: border-box;
     }
     
     .hint {
@@ -104,15 +114,20 @@ interface VruntimeSeries {
     
     .chart-container {
       width: 100%;
+      min-width: 0;
       background: white;
       border-radius: 8px;
       padding: 8px;
       box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      box-sizing: border-box;
+      overflow-x: auto;
     }
     
     .vruntime-svg {
       width: 100%;
-      height: 280px;
+      min-width: 500px;
+      height: 320px;
+      min-height: 320px;
       display: block;
     }
     
@@ -185,7 +200,7 @@ export class VruntimeChartComponent implements OnChanges {
   }
   
   get currentMarkerX(): number {
-    return this.paddingTop + (1 - (this.maxVruntime > 0 ? 0 : 0));
+    return this.paddingLeft + (this.currentTime / Math.max(this.maxTime, 1)) * this.chartWidth;
   }
   
   private buildSeries(): void {

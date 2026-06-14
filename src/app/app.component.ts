@@ -69,6 +69,8 @@ import { CommonModule } from '@angular/common';
     .app-main {
       flex: 1;
       padding: 16px;
+      min-height: 600px;
+      overflow: auto;
     }
   `]
 })
