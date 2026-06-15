@@ -28,6 +28,7 @@ export interface SchedulerRule {
   id: string;
   conditions: SchedulerCondition[];
   action: SchedulerAction;
+  enabled?: boolean;
 }
 
 export interface CustomSchedulerPolicy {

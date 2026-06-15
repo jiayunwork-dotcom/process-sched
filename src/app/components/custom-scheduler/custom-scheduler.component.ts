@@ -1,11 +1,11 @@
-import { Component, OnInit } from '@angular/core';
+import { Component, OnInit, ElementRef } from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { FormsModule } from '@angular/forms';
 import { Process, SchedulerResult, AlgorithmConfig, SchedulerStats } from '../../models/process.model';
-import { 
-  CustomSchedulerPolicy, 
-  SchedulerRule, 
-  SchedulerCondition, 
+import {
+  CustomSchedulerPolicy,
+  SchedulerRule,
+  SchedulerCondition,
   SchedulerAction,
   ConditionType,
   ActionType,
@@ -36,8 +36,8 @@ import { SchedulerService } from '../../services/scheduler.service';
           <span>已保存策略</span>
         </div>
         <div class="policy-list" *ngIf="savedPolicies.length > 0">
-          <div 
-            *ngFor="let policy of savedPolicies" 
+          <div
+            *ngFor="let policy of savedPolicies"
             class="policy-chip"
             [class.active]="currentPolicy.id === policy.id"
             (click)="loadPolicy(policy)"
@@ -61,12 +61,13 @@ import { SchedulerService } from '../../services/scheduler.service';
               <span>📝 规则编辑器</span>
               <span class="hint-text">拖拽或使用按钮调整规则优先级</span>
             </div>
-            
+
             <div class="rules-container">
-              <div 
-                *ngFor="let rule of currentPolicy.rules; let i = index" 
+              <div
+                *ngFor="let rule of currentPolicy.rules; let i = index"
                 class="rule-card"
                 [class.dragging]="draggedRuleIndex === i"
+                [class.disabled]="rule.enabled === false"
                 draggable="true"
                 (dragstart)="onDragStart($event, i)"
                 (dragover)="onDragOver($event, i)"
@@ -75,22 +76,26 @@ import { SchedulerService } from '../../services/scheduler.service';
                 (dragend)="onDragEnd()"
               >
                 <div class="rule-header">
-                  <span class="rule-number">规则 {{ i + 1 }}</span>
+                  <span class="rule-number" [class.disabled]="rule.enabled === false">规则 {{ i + 1 }}</span>
                   <div class="rule-actions">
-                    <button 
-                      class="btn-icon" 
-                      (click)="moveRuleUp(i)" 
+                    <label class="toggle-switch" title="启用/禁用">
+                      <input type="checkbox" [checked]="rule.enabled !== false" (change)="toggleRuleEnabled(rule)">
+                      <span class="toggle-slider"></span>
+                    </label>
+                    <button
+                      class="btn-icon"
+                      (click)="moveRuleUp(i)"
                       [disabled]="i === 0"
                       title="上移"
                     >↑</button>
-                    <button 
-                      class="btn-icon" 
-                      (click)="moveRuleDown(i)" 
+                    <button
+                      class="btn-icon"
+                      (click)="moveRuleDown(i)"
                       [disabled]="i === currentPolicy.rules.length - 1"
                       title="下移"
                     >↓</button>
-                    <button 
-                      class="btn-icon btn-delete" 
+                    <button
+                      class="btn-icon btn-delete"
                       (click)="deleteRule(i)"
                       title="删除"
                     >✕</button>
@@ -101,12 +106,12 @@ import { SchedulerService } from '../../services/scheduler.service';
                   <div class="conditions-section">
                     <div class="section-label">触发条件 (AND)</div>
                     <div class="conditions-list">
-                      <div 
-                        *ngFor="let cond of rule.conditions; let ci = index" 
+                      <div
+                        *ngFor="let cond of rule.conditions; let ci = index"
                         class="condition-item"
                       >
-                        <select 
-                          [(ngModel)]="cond.type" 
+                        <select
+                          [(ngModel)]="cond.type"
                           class="condition-type-select"
                           (change)="onConditionTypeChange(rule, ci)"
                         >
@@ -114,30 +119,30 @@ import { SchedulerService } from '../../services/scheduler.service';
                             {{ ct.label }}
                           </option>
                         </select>
-                        
+
                         <ng-container *ngIf="needsOperator(cond.type)">
                           <select [(ngModel)]="cond.operator" class="operator-select">
                             <option *ngFor="let op of COMPARISON_OPERATORS" [value]="op.value">
                               {{ op.label }}
                             </option>
                           </select>
-                          <input 
-                            type="number" 
-                            [(ngModel)]="cond.value" 
+                          <input
+                            type="number"
+                            [(ngModel)]="cond.value"
                             class="value-input"
                             min="0"
                           />
                         </ng-container>
-                        
-                        <button 
-                          class="btn-icon btn-delete-small" 
+
+                        <button
+                          class="btn-icon btn-delete-small"
                           (click)="removeCondition(rule, ci)"
                           title="删除条件"
                           *ngIf="rule.conditions.length > 1"
                         >✕</button>
                       </div>
                     </div>
-                    <button 
+                    <button
                       class="btn btn-secondary btn-sm add-condition-btn"
                       (click)="addCondition(rule)"
                     >
@@ -155,7 +160,7 @@ import { SchedulerService } from '../../services/scheduler.service';
                   </div>
                 </div>
 
-                <div class="rule-summary">
+                <div class="rule-summary" [class.disabled]="rule.enabled === false">
                   <span class="summary-label">规则描述：</span>
                   <span class="summary-text">{{ getRuleDescription(rule) }}</span>
                 </div>
@@ -179,9 +184,9 @@ import { SchedulerService } from '../../services/scheduler.service';
             <div class="save-form">
               <div class="form-group">
                 <label>策略名称</label>
-                <input 
-                  type="text" 
-                  [(ngModel)]="policyName" 
+                <input
+                  type="text"
+                  [(ngModel)]="policyName"
                   placeholder="输入策略名称..."
                   class="name-input"
                 />
@@ -189,13 +194,21 @@ import { SchedulerService } from '../../services/scheduler.service';
               <button class="btn btn-primary save-btn" (click)="saveCurrentPolicy()">
                 {{ currentPolicy.id ? '更新策略' : '保存策略' }}
               </button>
-              <button 
-                class="btn btn-secondary reset-btn" 
+              <button
+                class="btn btn-secondary reset-btn"
                 (click)="resetEditor()"
                 *ngIf="currentPolicy.id"
               >
                 新建策略
               </button>
+              <div class="import-export-row">
+                <button class="btn btn-secondary btn-sm" (click)="exportPolicy()">
+                  📤 导出
+                </button>
+                <button class="btn btn-secondary btn-sm" (click)="showImportModal()">
+                  📥 导入
+                </button>
+              </div>
             </div>
           </div>
         </div>
@@ -214,17 +227,23 @@ import { SchedulerService } from '../../services/scheduler.service';
                 <span class="label">规则数量：</span>
                 <span class="value">{{ currentPolicy.rules.length }} 条</span>
               </div>
+              <div class="rule-count-info">
+                <span class="label">已启用：</span>
+                <span class="value">{{ enabledRuleCount }} 条</span>
+              </div>
             </div>
-            
+
             <div class="rules-summary">
               <div class="summary-title">规则摘要</div>
               <div class="summary-list" *ngIf="currentPolicy.rules.length > 0">
-                <div 
-                  *ngFor="let rule of currentPolicy.rules; let i = index" 
+                <div
+                  *ngFor="let rule of currentPolicy.rules; let i = index"
                   class="summary-item"
+                  [class.disabled]="rule.enabled === false"
                 >
-                  <span class="summary-number">{{ i + 1 }}.</span>
+                  <span class="summary-number" [class.disabled]="rule.enabled === false">{{ i + 1 }}.</span>
                   <span class="summary-content">{{ getRuleDescription(rule) }}</span>
+                  <span class="summary-status" *ngIf="rule.enabled === false">已禁用</span>
                 </div>
               </div>
               <div class="summary-empty" *ngIf="currentPolicy.rules.length === 0">
@@ -240,15 +259,15 @@ import { SchedulerService } from '../../services/scheduler.service';
           <div class="card quick-test-card">
             <div class="card-title">
               <span>⚡ 快速测试</span>
-              <button 
+              <button
                 class="btn btn-primary btn-sm"
                 (click)="runQuickTest()"
-                [disabled]="processes.length === 0 || currentPolicy.rules.length === 0"
+                [disabled]="processes.length === 0 || enabledRuleCount === 0"
               >
                 运行测试
               </button>
             </div>
-            
+
             <div class="process-count-info">
               当前进程数：{{ processes.length }} 个
               <span class="hint">(与主模拟器共享进程配置)</span>
@@ -263,7 +282,7 @@ import { SchedulerService } from '../../services/scheduler.service';
                     {{ proc.name }}
                   </div>
                   <div class="gantt-timeline">
-                    <div 
+                    <div
                       *ngFor="let block of getBlocksForProcess(proc.pid)"
                       class="mini-gantt-block"
                       [class.running]="block.status === 'running'"
@@ -274,6 +293,9 @@ import { SchedulerService } from '../../services/scheduler.service';
                       [style.left]="(block.startTime / quickTestResult.totalTime) * 100 + '%'"
                       [style.width]="((block.endTime - block.startTime) / quickTestResult.totalTime) * 100 + '%'"
                       [style.background]="block.status === 'running' ? proc.color : undefined"
+                      (mouseenter)="showMiniTooltip($event, block, proc)"
+                      (mousemove)="updateMiniTooltipPosition($event)"
+                      (mouseleave)="hideMiniTooltip()"
                     ></div>
                   </div>
                 </div>
@@ -281,6 +303,18 @@ import { SchedulerService } from '../../services/scheduler.service';
               <div class="gantt-time-axis">
                 <span>0</span>
                 <span>{{ quickTestResult.totalTime }} 时间单位</span>
+              </div>
+
+              <div
+                class="mini-tooltip"
+                *ngIf="miniTooltipVisible"
+                [style.left]="miniTooltipX + 'px'"
+                [style.top]="miniTooltipY + 'px'"
+              >
+                <div class="mini-tooltip-row"><strong>{{ miniTooltipProcess?.name }}</strong></div>
+                <div class="mini-tooltip-row">开始: {{ miniTooltipBlock?.startTime }}</div>
+                <div class="mini-tooltip-row">结束: {{ miniTooltipBlock?.endTime }}</div>
+                <div class="mini-tooltip-row">持续: {{ miniTooltipBlock ? miniTooltipBlock.endTime - miniTooltipBlock.startTime : 0 }}</div>
               </div>
             </div>
 
@@ -303,10 +337,10 @@ import { SchedulerService } from '../../services/scheduler.service';
           <div class="card compare-card">
             <div class="card-title">
               <span>📊 与内置算法对比</span>
-              <button 
+              <button
                 class="btn btn-primary btn-sm"
                 (click)="runComparison()"
-                [disabled]="processes.length === 0 || currentPolicy.rules.length === 0 || selectedAlgorithms.length === 0"
+                [disabled]="processes.length === 0 || enabledRuleCount === 0 || selectedAlgorithms.length === 0"
               >
                 运行对比
               </button>
@@ -315,12 +349,12 @@ import { SchedulerService } from '../../services/scheduler.service';
             <div class="algo-selector">
               <div class="selector-label">选择对比算法（1-3个）：</div>
               <div class="algo-checkboxes">
-                <label 
-                  *ngFor="let algo of builtinAlgorithms" 
+                <label
+                  *ngFor="let algo of builtinAlgorithms"
                   class="algo-check-label"
                 >
-                  <input 
-                    type="checkbox" 
+                  <input
+                    type="checkbox"
                     [checked]="selectedAlgorithms.includes(algo.type)"
                     (change)="toggleAlgorithm(algo.type)"
                   />
@@ -342,12 +376,12 @@ import { SchedulerService } from '../../services/scheduler.service';
                 <tbody>
                   <tr>
                     <td>平均等待时间</td>
-                    <td 
+                    <td
                       [class.best]="isCustomBest('avgWaitingTime')"
                     >
                       {{ formatNumber(customCompareStats?.avgWaitingTime, 2) }}
                     </td>
-                    <td 
+                    <td
                       *ngFor="let r of compareResults"
                       [class.best]="isBestMetric('avgWaitingTime', r.result.stats.avgWaitingTime)"
                     >
@@ -356,12 +390,12 @@ import { SchedulerService } from '../../services/scheduler.service';
                   </tr>
                   <tr>
                     <td>平均周转时间</td>
-                    <td 
+                    <td
                       [class.best]="isCustomBest('avgTurnaroundTime')"
                     >
                       {{ formatNumber(customCompareStats?.avgTurnaroundTime, 2) }}
                     </td>
-                    <td 
+                    <td
                       *ngFor="let r of compareResults"
                       [class.best]="isBestMetric('avgTurnaroundTime', r.result.stats.avgTurnaroundTime)"
                     >
@@ -370,12 +404,12 @@ import { SchedulerService } from '../../services/scheduler.service';
                   </tr>
                   <tr>
                     <td>CPU利用率</td>
-                    <td 
+                    <td
                       [class.best]="isCustomBest('cpuUtilization', true)"
                     >
                       {{ formatNumber(customCompareStats?.cpuUtilization, 1) }}%
                     </td>
-                    <td 
+                    <td
                       *ngFor="let r of compareResults"
                       [class.best]="isBestMetric('cpuUtilization', r.result.stats.cpuUtilization, true)"
                     >
@@ -389,9 +423,84 @@ import { SchedulerService } from '../../services/scheduler.service';
                 <span class="legend-text">最优值</span>
               </div>
             </div>
+
+            <div class="timeline-section" *ngIf="compareResults.length > 0 || customCompareStats">
+              <div class="timeline-title">调度时间线</div>
+              <div class="timeline-legend">
+                <span class="timeline-legend-item"><span class="legend-block tl-running"></span> 运行中</span>
+                <span class="timeline-legend-item"><span class="legend-block tl-ready"></span> 就绪等待</span>
+                <span class="timeline-legend-item"><span class="legend-block tl-waiting"></span> IO阻塞</span>
+                <span class="timeline-legend-item"><span class="legend-block tl-not-arrived"></span> 未到达</span>
+              </div>
+              <div class="timeline-rows">
+                <div class="timeline-algo-row" *ngIf="customTimelineData">
+                  <div class="timeline-algo-label">自定义策略</div>
+                  <div class="timeline-algo-content">
+                    <div class="timeline-proc-row" *ngFor="let proc of customTimelineData">
+                      <div class="timeline-proc-label">{{ proc.name }}</div>
+                      <div class="timeline-bar-area">
+                        <div
+                          *ngFor="let seg of proc.segments"
+                          class="timeline-seg"
+                          [class]="seg.status"
+                          [style.left]="seg.left + '%'"
+                          [style.width]="seg.width + '%'"
+                          [title]="proc.name + ' / ' + seg.statusLabel + ' / [' + seg.startTime + ', ' + seg.endTime + ')'"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div class="timeline-algo-row" *ngFor="let item of compareTimelineData">
+                  <div class="timeline-algo-label">{{ item.algorithmName }}</div>
+                  <div class="timeline-algo-content">
+                    <div class="timeline-proc-row" *ngFor="let proc of item.processes">
+                      <div class="timeline-proc-label">{{ proc.name }}</div>
+                      <div class="timeline-bar-area">
+                        <div
+                          *ngFor="let seg of proc.segments"
+                          class="timeline-seg"
+                          [class]="seg.status"
+                          [style.left]="seg.left + '%'"
+                          [style.width]="seg.width + '%'"
+                          [title]="proc.name + ' / ' + seg.statusLabel + ' / [' + seg.startTime + ', ' + seg.endTime + ')'"
+                        ></div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div class="timeline-axis" *ngIf="timelineMaxTime > 0">
+                <span>0</span>
+                <span>{{ timelineMaxTime }}</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
+    </div>
+
+    <div class="modal-overlay" *ngIf="importModalVisible" (click)="closeImportModal()">
+      <div class="modal-dialog" (click)="$event.stopPropagation()">
+        <div class="modal-title">📥 导入策略</div>
+        <div class="modal-body">
+          <textarea
+            class="import-textarea"
+            [(ngModel)]="importJsonString"
+            placeholder="在此粘贴策略 JSON 字符串..."
+            rows="10"
+          ></textarea>
+          <div class="import-error" *ngIf="importErrorMessage">{{ importErrorMessage }}</div>
+        </div>
+        <div class="modal-footer">
+          <button class="btn btn-secondary btn-sm" (click)="closeImportModal()">取消</button>
+          <button class="btn btn-primary btn-sm" (click)="confirmImport()">确认导入</button>
+        </div>
+      </div>
+    </div>
+
+    <div class="toast-notification" *ngIf="toastVisible">
+      {{ toastMessage }}
     </div>
   `,
   styles: [`
@@ -537,6 +646,23 @@ import { SchedulerService } from '../../services/scheduler.service';
       box-shadow: 0 2px 8px rgba(102, 126, 234, 0.15);
     }
 
+    .rule-card.disabled {
+      opacity: 0.55;
+      background: #f1f5f9;
+      border-color: #e2e8f0;
+    }
+
+    .rule-card.disabled:hover {
+      border-color: #cbd5e0;
+      box-shadow: none;
+    }
+
+    .rule-card.disabled .rule-body,
+    .rule-card.disabled .rule-summary {
+      text-decoration: line-through;
+      color: #94a3b8;
+    }
+
     .rule-card.dragging {
       opacity: 0.5;
       transform: scale(1.02);
@@ -563,9 +689,62 @@ import { SchedulerService } from '../../services/scheduler.service';
       border-radius: 12px;
     }
 
+    .rule-number.disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+      text-decoration: line-through;
+    }
+
     .rule-actions {
       display: flex;
       gap: 4px;
+      align-items: center;
+    }
+
+    .toggle-switch {
+      position: relative;
+      display: inline-block;
+      width: 36px;
+      height: 20px;
+      cursor: pointer;
+      margin-right: 4px;
+    }
+
+    .toggle-switch input {
+      opacity: 0;
+      width: 0;
+      height: 0;
+    }
+
+    .toggle-slider {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: #cbd5e0;
+      border-radius: 20px;
+      transition: all 0.2s;
+    }
+
+    .toggle-slider::before {
+      content: '';
+      position: absolute;
+      height: 16px;
+      width: 16px;
+      left: 2px;
+      bottom: 2px;
+      background: white;
+      border-radius: 50%;
+      transition: all 0.2s;
+    }
+
+    .toggle-switch input:checked + .toggle-slider {
+      background: #667eea;
+    }
+
+    .toggle-switch input:checked + .toggle-slider::before {
+      transform: translateX(16px);
     }
 
     .btn-icon {
@@ -696,6 +875,11 @@ import { SchedulerService } from '../../services/scheduler.service';
       color: #92400e;
     }
 
+    .rule-summary.disabled {
+      background: #f1f5f9;
+      color: #94a3b8;
+    }
+
     .summary-label {
       font-weight: 600;
     }
@@ -800,6 +984,15 @@ import { SchedulerService } from '../../services/scheduler.service';
       width: 100%;
     }
 
+    .import-export-row {
+      display: flex;
+      gap: 8px;
+    }
+
+    .import-export-row .btn {
+      flex: 1;
+    }
+
     .policy-info {
       display: flex;
       gap: 20px;
@@ -841,12 +1034,33 @@ import { SchedulerService } from '../../services/scheduler.service';
       border-radius: 6px;
       font-size: 12px;
       color: #475569;
+      align-items: center;
+    }
+
+    .summary-item.disabled {
+      opacity: 0.5;
+      text-decoration: line-through;
+      color: #94a3b8;
     }
 
     .summary-number {
       font-weight: 600;
       color: #667eea;
       flex-shrink: 0;
+    }
+
+    .summary-number.disabled {
+      color: #94a3b8;
+    }
+
+    .summary-status {
+      margin-left: auto;
+      font-size: 10px;
+      background: #fee2e2;
+      color: #dc2626;
+      padding: 2px 8px;
+      border-radius: 10px;
+      font-weight: 600;
     }
 
     .summary-empty {
@@ -889,6 +1103,7 @@ import { SchedulerService } from '../../services/scheduler.service';
       padding: 12px;
       background: #f8fafc;
       border-radius: 8px;
+      position: relative;
     }
 
     .mini-gantt-title {
@@ -944,6 +1159,7 @@ import { SchedulerService } from '../../services/scheduler.service';
       top: 0;
       bottom: 0;
       border: 1px solid rgba(0,0,0,0.1);
+      cursor: pointer;
     }
 
     .mini-gantt-block.ready {
@@ -961,6 +1177,24 @@ import { SchedulerService } from '../../services/scheduler.service';
 
     .mini-gantt-block.completed {
       background: #bbf7d0 !important;
+    }
+
+    .mini-tooltip {
+      position: fixed;
+      z-index: 1000;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 8px;
+      padding: 10px 14px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+      font-size: 12px;
+      pointer-events: none;
+      min-width: 140px;
+    }
+
+    .mini-tooltip-row {
+      color: #475569;
+      line-height: 1.6;
     }
 
     .gantt-time-axis {
@@ -1133,11 +1367,216 @@ import { SchedulerService } from '../../services/scheduler.service';
       border-radius: 3px;
     }
 
+    .timeline-section {
+      margin-top: 16px;
+      padding-top: 16px;
+      border-top: 1px solid #e2e8f0;
+    }
+
+    .timeline-title {
+      font-weight: 600;
+      color: #475569;
+      margin-bottom: 10px;
+      font-size: 14px;
+    }
+
+    .timeline-legend {
+      display: flex;
+      gap: 12px;
+      margin-bottom: 12px;
+      flex-wrap: wrap;
+    }
+
+    .timeline-legend-item {
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      font-size: 11px;
+      color: #64748b;
+    }
+
+    .legend-block {
+      width: 14px;
+      height: 14px;
+      border-radius: 3px;
+      border: 1px solid rgba(0,0,0,0.1);
+    }
+
+    .legend-block.tl-running { background: #22c55e; }
+    .legend-block.tl-ready { background: #eab308; }
+    .legend-block.tl-waiting { background: #ef4444; }
+    .legend-block.tl-not-arrived { background: #94a3b8; }
+
+    .timeline-rows {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .timeline-algo-row {
+      background: #f8fafc;
+      border-radius: 8px;
+      padding: 10px;
+      border: 1px solid #e2e8f0;
+    }
+
+    .timeline-algo-label {
+      font-weight: 600;
+      color: #4338ca;
+      font-size: 12px;
+      margin-bottom: 8px;
+      padding: 2px 8px;
+      background: #eef2ff;
+      border-radius: 4px;
+      display: inline-block;
+    }
+
+    .timeline-algo-content {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+
+    .timeline-proc-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      height: 18px;
+    }
+
+    .timeline-proc-label {
+      width: 40px;
+      font-size: 11px;
+      font-weight: 600;
+      color: #475569;
+      flex-shrink: 0;
+      text-align: right;
+    }
+
+    .timeline-bar-area {
+      flex: 1;
+      height: 14px;
+      background: white;
+      border: 1px solid #e2e8f0;
+      border-radius: 3px;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .timeline-seg {
+      position: absolute;
+      top: 0;
+      bottom: 0;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+
+    .timeline-seg.running { background: #22c55e; }
+    .timeline-seg.ready { background: #eab308; }
+    .timeline-seg.waiting { background: #ef4444; }
+    .timeline-seg.not_arrived { background: #94a3b8; }
+    .timeline-seg.completed { background: #22c55e; opacity: 0.4; }
+
+    .timeline-axis {
+      display: flex;
+      justify-content: space-between;
+      margin-top: 6px;
+      padding-left: 46px;
+      font-size: 10px;
+      color: #94a3b8;
+    }
+
+    .modal-overlay {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      background: rgba(0,0,0,0.4);
+      z-index: 2000;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .modal-dialog {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      width: 480px;
+      max-width: 90vw;
+      box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    }
+
+    .modal-title {
+      font-weight: 600;
+      font-size: 16px;
+      color: #334155;
+      margin-bottom: 14px;
+    }
+
+    .modal-body {
+      margin-bottom: 16px;
+    }
+
+    .import-textarea {
+      width: 100%;
+      padding: 10px;
+      border: 1px solid #cbd5e0;
+      border-radius: 8px;
+      font-size: 12px;
+      font-family: monospace;
+      resize: vertical;
+      box-sizing: border-box;
+    }
+
+    .import-textarea:focus {
+      outline: none;
+      border-color: #667eea;
+      box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+    }
+
+    .import-error {
+      margin-top: 8px;
+      padding: 8px 12px;
+      background: #fee2e2;
+      color: #dc2626;
+      border-radius: 6px;
+      font-size: 12px;
+      font-weight: 500;
+    }
+
+    .modal-footer {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+    }
+
+    .toast-notification {
+      position: fixed;
+      bottom: 24px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: #334155;
+      color: white;
+      padding: 10px 24px;
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 500;
+      z-index: 3000;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.2);
+      animation: toastFadeIn 0.3s ease;
+    }
+
+    @keyframes toastFadeIn {
+      from { opacity: 0; transform: translateX(-50%) translateY(10px); }
+      to { opacity: 1; transform: translateX(-50%) translateY(0); }
+    }
+
     @media (max-width: 1200px) {
       .editor-layout {
         flex-direction: column;
       }
-      
+
       .left-panel {
         width: 100%;
         min-width: 0;
@@ -1149,22 +1588,36 @@ export class CustomSchedulerComponent implements OnInit {
   currentPolicy: CustomSchedulerPolicy;
   policyName = '';
   savedPolicies: CustomSchedulerPolicy[] = [];
-  
+
   processes: Process[] = [];
   quickTestResult: SchedulerResult | null = null;
-  
+
   selectedAlgorithms: string[] = ['fcfs', 'sjf'];
   compareResults: { algorithmName: string; result: SchedulerResult }[] = [];
   customCompareStats: SchedulerStats | null = null;
-  
+
   private pressTimer: any = null;
   draggedRuleIndex: number | null = null;
-  
+
+  importModalVisible = false;
+  importJsonString = '';
+  importErrorMessage = '';
+
+  toastVisible = false;
+  toastMessage = '';
+  private toastTimer: any = null;
+
+  miniTooltipVisible = false;
+  miniTooltipX = 0;
+  miniTooltipY = 0;
+  miniTooltipBlock: any = null;
+  miniTooltipProcess: Process | null = null;
+
   readonly COMPARISON_OPERATORS = COMPARISON_OPERATORS;
   readonly getRuleDescription = getRuleDescription;
   readonly getConditionDescription = getConditionDescription;
   readonly getActionDescription = getActionDescription;
-  
+
   conditionTypes = [
     { value: 'ready_queue_length' as ConditionType, label: '就绪队列长度' },
     { value: 'current_run_time' as ConditionType, label: '当前进程已运行时间' },
@@ -1172,7 +1625,7 @@ export class CustomSchedulerComponent implements OnInit {
     { value: 'remaining_time' as ConditionType, label: '当前进程剩余时间' },
     { value: 'cpu_idle' as ConditionType, label: 'CPU空闲（无进程运行）' }
   ];
-  
+
   actionTypes = [
     { value: 'preempt_to_tail' as ActionType, label: '抢占当前进程，移到队列尾部' },
     { value: 'select_highest_priority' as ActionType, label: '选择优先级最高的进程' },
@@ -1180,7 +1633,7 @@ export class CustomSchedulerComponent implements OnInit {
     { value: 'select_longest_waiting' as ActionType, label: '选择等待时间最长的进程' },
     { value: 'continue_current' as ActionType, label: '继续运行当前进程' }
   ];
-  
+
   builtinAlgorithms = [
     { type: 'fcfs', name: 'FCFS' },
     { type: 'sjf', name: 'SJF' },
@@ -1193,7 +1646,8 @@ export class CustomSchedulerComponent implements OnInit {
     private customSchedulerService: CustomSchedulerService,
     private policyStorageService: PolicyStorageService,
     private processService: ProcessService,
-    private schedulerService: SchedulerService
+    private schedulerService: SchedulerService,
+    private elementRef: ElementRef
   ) {
     this.currentPolicy = this.createEmptyPolicy();
   }
@@ -1202,10 +1656,65 @@ export class CustomSchedulerComponent implements OnInit {
     this.processes = this.processService.getProcesses();
     this.savedPolicies = this.policyStorageService.getAllPolicies();
   }
-  
+
   get processList(): Process[] {
     if (!this.quickTestResult) return [];
     return Array.from(this.quickTestResult.processes.values()).sort((a, b) => a.pid - b.pid);
+  }
+
+  get enabledRuleCount(): number {
+    return this.currentPolicy.rules.filter(r => r.enabled !== false).length;
+  }
+
+  get timelineMaxTime(): number {
+    let max = 0;
+    if (this.customCompareStats) {
+      max = Math.max(max, this.customCompareStats.totalTime);
+    }
+    for (const r of this.compareResults) {
+      max = Math.max(max, r.result.totalTime);
+    }
+    return max;
+  }
+
+  get customTimelineData() {
+    if (!this.customCompareStats || !this.quickTestResult) return null;
+    return this.buildTimelineData(this.quickTestResult);
+  }
+
+  get compareTimelineData() {
+    return this.compareResults.map(r => ({
+      algorithmName: r.algorithmName,
+      processes: this.buildTimelineData(r.result)
+    }));
+  }
+
+  private buildTimelineData(result: SchedulerResult) {
+    const procs = Array.from(result.processes.values()).sort((a, b) => a.pid - b.pid);
+    const maxTime = result.totalTime || 1;
+    const statusLabelMap: Record<string, string> = {
+      'running': '运行中',
+      'ready': '就绪等待',
+      'waiting': 'IO阻塞',
+      'not_arrived': '未到达',
+      'completed': '已完成'
+    };
+    return procs.map(proc => {
+      const blocks = result.ganttBlocks.get(proc.pid) || [];
+      const segments = blocks.map(b => ({
+        status: b.status,
+        statusLabel: statusLabelMap[b.status] || b.status,
+        startTime: b.startTime,
+        endTime: b.endTime,
+        left: (b.startTime / maxTime) * 100,
+        width: ((b.endTime - b.startTime) / maxTime) * 100
+      }));
+      return {
+        name: proc.name,
+        pid: proc.pid,
+        segments
+      };
+    });
   }
 
   private createEmptyPolicy(): CustomSchedulerPolicy {
@@ -1231,13 +1740,18 @@ export class CustomSchedulerComponent implements OnInit {
       ],
       action: {
         type: 'select_highest_priority'
-      }
+      },
+      enabled: true
     };
     this.currentPolicy.rules.push(newRule);
   }
 
   deleteRule(index: number): void {
     this.currentPolicy.rules.splice(index, 1);
+  }
+
+  toggleRuleEnabled(rule: SchedulerRule): void {
+    rule.enabled = rule.enabled === false ? true : false;
   }
 
   moveRuleUp(index: number): void {
@@ -1284,8 +1798,8 @@ export class CustomSchedulerComponent implements OnInit {
   }
 
   needsOperator(type: ConditionType): boolean {
-    return type === 'ready_queue_length' || 
-           type === 'current_run_time' || 
+    return type === 'ready_queue_length' ||
+           type === 'current_run_time' ||
            type === 'remaining_time';
   }
 
@@ -1309,11 +1823,11 @@ export class CustomSchedulerComponent implements OnInit {
   onDrop(event: DragEvent, dropIndex: number): void {
     event.preventDefault();
     if (this.draggedRuleIndex === null || this.draggedRuleIndex === dropIndex) return;
-    
+
     const draggedRule = this.currentPolicy.rules[this.draggedRuleIndex];
     this.currentPolicy.rules.splice(this.draggedRuleIndex, 1);
     this.currentPolicy.rules.splice(dropIndex, 0, draggedRule);
-    
+
     this.draggedRuleIndex = null;
   }
 
@@ -1326,12 +1840,12 @@ export class CustomSchedulerComponent implements OnInit {
       alert('请输入策略名称');
       return;
     }
-    
+
     if (this.currentPolicy.rules.length === 0) {
       alert('请至少添加一条规则');
       return;
     }
-    
+
     this.currentPolicy.name = this.policyName.trim();
     const saved = this.policyStorageService.savePolicy(this.currentPolicy);
     this.currentPolicy = { ...saved };
@@ -1341,11 +1855,16 @@ export class CustomSchedulerComponent implements OnInit {
   loadPolicy(policy: CustomSchedulerPolicy): void {
     this.currentPolicy = {
       ...policy,
-      rules: policy.rules.map(r => ({ ...r, conditions: [...r.conditions] }))
+      rules: policy.rules.map(r => ({
+        ...r,
+        conditions: [...r.conditions],
+        enabled: r.enabled !== false
+      }))
     };
     this.policyName = policy.name;
     this.quickTestResult = null;
     this.compareResults = [];
+    this.customCompareStats = null;
   }
 
   resetEditor(): void {
@@ -1353,6 +1872,7 @@ export class CustomSchedulerComponent implements OnInit {
     this.policyName = '';
     this.quickTestResult = null;
     this.compareResults = [];
+    this.customCompareStats = null;
   }
 
   startPressTimer(policyId: string): void {
@@ -1375,8 +1895,8 @@ export class CustomSchedulerComponent implements OnInit {
   }
 
   runQuickTest(): void {
-    if (this.processes.length === 0 || this.currentPolicy.rules.length === 0) return;
-    
+    if (this.processes.length === 0 || this.enabledRuleCount === 0) return;
+
     this.quickTestResult = this.customSchedulerService.runSimulation(
       this.processes,
       this.currentPolicy,
@@ -1404,16 +1924,17 @@ export class CustomSchedulerComponent implements OnInit {
 
   runComparison(): void {
     if (this.processes.length === 0) return;
-    if (this.currentPolicy.rules.length === 0) return;
+    if (this.enabledRuleCount === 0) return;
     if (this.selectedAlgorithms.length === 0) return;
-    
+
     const customResult = this.customSchedulerService.runSimulation(
       this.processes,
       this.currentPolicy,
       1
     );
     this.customCompareStats = customResult.stats;
-    
+    this.quickTestResult = customResult;
+
     this.compareResults = [];
     for (const algoType of this.selectedAlgorithms) {
       const config: AlgorithmConfig = {
@@ -1423,7 +1944,7 @@ export class CustomSchedulerComponent implements OnInit {
         preemptive: true,
         contextSwitchOverhead: 1
       };
-      
+
       const result = this.schedulerService.runSimulation(this.processes, config);
       this.compareResults.push({
         algorithmName: config.name,
@@ -1445,20 +1966,131 @@ export class CustomSchedulerComponent implements OnInit {
 
   isBestMetric(metric: string, value: number | undefined, higherIsBetter = false): boolean {
     if (value === undefined) return false;
-    
+
     const allValues: number[] = [];
-    
+
     if (this.customCompareStats) {
       allValues.push((this.customCompareStats as any)[metric]);
     }
-    
+
     for (const r of this.compareResults) {
       allValues.push((r.result.stats as any)[metric]);
     }
-    
+
     if (allValues.length === 0) return false;
-    
+
     const best = higherIsBetter ? Math.max(...allValues) : Math.min(...allValues);
     return value === best;
+  }
+
+  exportPolicy(): void {
+    const data = {
+      name: this.policyName,
+      rules: this.currentPolicy.rules.map(r => ({
+        id: r.id,
+        conditions: r.conditions,
+        action: r.action,
+        enabled: r.enabled !== false
+      }))
+    };
+    const json = JSON.stringify(data, null, 2);
+    navigator.clipboard.writeText(json).then(() => {
+      this.showToast('已复制到剪贴板');
+    }).catch(() => {
+      const textarea = document.createElement('textarea');
+      textarea.value = json;
+      document.body.appendChild(textarea);
+      textarea.select();
+      document.execCommand('copy');
+      document.body.removeChild(textarea);
+      this.showToast('已复制到剪贴板');
+    });
+  }
+
+  showImportModal(): void {
+    this.importJsonString = '';
+    this.importErrorMessage = '';
+    this.importModalVisible = true;
+  }
+
+  closeImportModal(): void {
+    this.importModalVisible = false;
+    this.importErrorMessage = '';
+  }
+
+  confirmImport(): void {
+    try {
+      const data = JSON.parse(this.importJsonString);
+      if (!data.rules || !Array.isArray(data.rules)) {
+        this.importErrorMessage = 'JSON 格式不合法：缺少 rules 数组';
+        return;
+      }
+      for (let i = 0; i < data.rules.length; i++) {
+        const r = data.rules[i];
+        if (!r.conditions || !Array.isArray(r.conditions) || !r.action) {
+          this.importErrorMessage = `第 ${i + 1} 条规则格式不正确`;
+          return;
+        }
+      }
+      this.currentPolicy = {
+        ...this.createEmptyPolicy(),
+        name: data.name || '',
+        rules: data.rules.map((r: any) => ({
+          id: r.id || generateRuleId(),
+          conditions: r.conditions,
+          action: r.action,
+          enabled: r.enabled !== false
+        }))
+      };
+      this.policyName = data.name || '';
+      this.quickTestResult = null;
+      this.compareResults = [];
+      this.customCompareStats = null;
+      this.importModalVisible = false;
+    } catch (e) {
+      this.importErrorMessage = 'JSON 格式不合法，请检查输入';
+    }
+  }
+
+  private showToast(message: string): void {
+    this.toastMessage = message;
+    this.toastVisible = true;
+    if (this.toastTimer) {
+      clearTimeout(this.toastTimer);
+    }
+    this.toastTimer = setTimeout(() => {
+      this.toastVisible = false;
+    }, 3000);
+  }
+
+  showMiniTooltip(event: MouseEvent, block: any, proc: Process): void {
+    this.miniTooltipBlock = block;
+    this.miniTooltipProcess = proc;
+    this.miniTooltipVisible = true;
+    this.updateMiniTooltipPosition(event);
+  }
+
+  updateMiniTooltipPosition(event: MouseEvent): void {
+    const offsetX = 16;
+    const offsetY = 16;
+    const width = 160;
+    const height = 100;
+
+    let x = event.clientX + offsetX;
+    let y = event.clientY + offsetY;
+
+    if (x + width > window.innerWidth) {
+      x = event.clientX - width - offsetX;
+    }
+    if (y + height > window.innerHeight) {
+      y = event.clientY - height - offsetY;
+    }
+
+    this.miniTooltipX = Math.max(4, x);
+    this.miniTooltipY = Math.max(4, y);
+  }
+
+  hideMiniTooltip(): void {
+    this.miniTooltipVisible = false;
   }
 }

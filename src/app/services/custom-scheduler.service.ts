@@ -206,6 +206,7 @@ export class CustomSchedulerService {
     const currentRunTime = currentTime - currentRunStartTime + 1;
     
     for (const rule of rules) {
+      if (rule.enabled === false) continue;
       if (this.evaluateConditions(rule.conditions, processes, runningPid, readyQueue, currentRunTime)) {
         if (rule.action.type === 'preempt_to_tail') {
           return true;
@@ -243,6 +244,7 @@ export class CustomSchedulerService {
     const currentRunTime = 0;
     
     for (const rule of rules) {
+      if (rule.enabled === false) continue;
       if (this.evaluateConditions(rule.conditions, processes, runningPid, readyQueue, currentRunTime)) {
         const selectedPid = this.executeSelectionAction(
           rule.action, processes, readyQueue, runningPid, currentTime, queueEntryTimes, queueEntryOrder
