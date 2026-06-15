@@ -28,6 +28,10 @@ export class CustomSchedulerService {
       ganttBlocks.set(p.pid, []);
     });
     
+    const queueEntryTimes = new Map<number, number>();
+    const orderCounter = { value: 0 };
+    const queueEntryOrder = new Map<number, number>();
+    
     let currentTime = 0;
     let runningPid: number | null = null;
     let readyQueue: number[] = [];
@@ -45,7 +49,7 @@ export class CustomSchedulerService {
     while (steps < maxSteps) {
       steps++;
       
-      this.checkArrivals(processes, readyQueue, currentTime);
+      this.checkArrivals(processes, readyQueue, currentTime, queueEntryTimes, queueEntryOrder, orderCounter);
       
       if (contextSwitchRemaining > 0) {
         contextSwitchRemaining--;
@@ -59,6 +63,8 @@ export class CustomSchedulerService {
           currentRunStartTime = currentTime;
           const proc = processes.get(runningPid)!;
           proc.status = 'running';
+          queueEntryTimes.delete(runningPid);
+          queueEntryOrder.delete(runningPid);
           if (!proc.hasStarted) {
             proc.hasStarted = true;
             proc.firstResponseTime = currentTime;
@@ -69,13 +75,15 @@ export class CustomSchedulerService {
       }
       
       const shouldPreempt = this.checkPreemptionWithRules(
-        processes, runningPid, readyQueue, policy.rules, currentTime, currentRunStartTime
+        processes, runningPid, readyQueue, policy.rules, currentTime, currentRunStartTime, queueEntryTimes, queueEntryOrder
       );
       
       if (shouldPreempt && runningPid !== null) {
         const proc = processes.get(runningPid)!;
         proc.status = 'ready';
         readyQueue.push(runningPid);
+        queueEntryTimes.set(runningPid, currentTime);
+        queueEntryOrder.set(runningPid, orderCounter.value++);
         runningPid = null;
         
         if (contextSwitchOverhead > 0) {
@@ -90,7 +98,7 @@ export class CustomSchedulerService {
       
       if (runningPid === null) {
         const selected = this.selectNextProcessWithRules(
-          processes, readyQueue, policy.rules, currentTime
+          processes, readyQueue, policy.rules, currentTime, queueEntryTimes, queueEntryOrder
         );
         
         if (selected !== null) {
@@ -100,6 +108,8 @@ export class CustomSchedulerService {
           if (idx > -1) {
             readyQueue.splice(idx, 1);
           }
+          queueEntryTimes.delete(runningPid);
+          queueEntryOrder.delete(runningPid);
           
           const proc = processes.get(runningPid)!;
           proc.status = 'running';
@@ -128,6 +138,8 @@ export class CustomSchedulerService {
           proc.status = 'waiting';
           proc.cpuExecutedInSlice = 0;
           waitingQueue.push(runningPid);
+          queueEntryTimes.delete(runningPid);
+          queueEntryOrder.delete(runningPid);
           
           runningPid = null;
           if (contextSwitchOverhead > 0) {
@@ -138,6 +150,8 @@ export class CustomSchedulerService {
           proc.status = 'completed';
           proc.completionTime = currentTime + 1;
           proc.turnaroundTime = proc.completionTime - proc.arrivalTime;
+          queueEntryTimes.delete(runningPid);
+          queueEntryOrder.delete(runningPid);
           
           runningPid = null;
           if (contextSwitchOverhead > 0) {
@@ -149,7 +163,7 @@ export class CustomSchedulerService {
         cpuTimeline.push(null);
       }
       
-      this.updateWaitingProcesses(processes, waitingQueue, readyQueue);
+      this.updateWaitingProcesses(processes, waitingQueue, readyQueue, queueEntryTimes, queueEntryOrder, orderCounter, currentTime);
       this.updateWaitingTimes(processes, readyQueue);
       
       this.takeSnapshot(queueSnapshots, currentTime, readyQueue, waitingQueue, snapshotRunning);
@@ -182,7 +196,9 @@ export class CustomSchedulerService {
     readyQueue: number[],
     rules: SchedulerRule[],
     currentTime: number,
-    currentRunStartTime: number
+    currentRunStartTime: number,
+    queueEntryTimes: Map<number, number>,
+    queueEntryOrder: Map<number, number>
   ): boolean {
     if (runningPid === null || readyQueue.length === 0) return false;
     
@@ -198,7 +214,7 @@ export class CustomSchedulerService {
             rule.action.type === 'select_shortest_remaining' ||
             rule.action.type === 'select_longest_waiting') {
           const selectedPid = this.executeSelectionAction(
-            rule.action, processes, readyQueue, runningPid
+            rule.action, processes, readyQueue, runningPid, currentTime, queueEntryTimes, queueEntryOrder
           );
           if (selectedPid !== null && selectedPid !== runningPid) {
             return true;
@@ -217,7 +233,9 @@ export class CustomSchedulerService {
     processes: Map<number, Process>,
     readyQueue: number[],
     rules: SchedulerRule[],
-    currentTime: number
+    currentTime: number,
+    queueEntryTimes: Map<number, number>,
+    queueEntryOrder: Map<number, number>
   ): number | null {
     if (readyQueue.length === 0) return null;
     
@@ -227,7 +245,7 @@ export class CustomSchedulerService {
     for (const rule of rules) {
       if (this.evaluateConditions(rule.conditions, processes, runningPid, readyQueue, currentRunTime)) {
         const selectedPid = this.executeSelectionAction(
-          rule.action, processes, readyQueue, runningPid
+          rule.action, processes, readyQueue, runningPid, currentTime, queueEntryTimes, queueEntryOrder
         );
         if (selectedPid !== null) {
           return selectedPid;
@@ -304,7 +322,10 @@ export class CustomSchedulerService {
     action: SchedulerAction,
     processes: Map<number, Process>,
     readyQueue: number[],
-    currentRunningPid: number | null
+    currentRunningPid: number | null,
+    currentTime: number,
+    queueEntryTimes: Map<number, number>,
+    queueEntryOrder: Map<number, number>
   ): number | null {
     if (readyQueue.length === 0) return null;
     
@@ -316,7 +337,7 @@ export class CustomSchedulerService {
         return this.selectByShortestRemaining(readyQueue, processes);
       
       case 'select_longest_waiting':
-        return this.selectByLongestWaiting(readyQueue, processes);
+        return this.selectByLongestWaiting(readyQueue, processes, currentTime, queueEntryTimes, queueEntryOrder);
       
       case 'preempt_to_tail':
         return readyQueue[0] ?? null;
@@ -363,16 +384,28 @@ export class CustomSchedulerService {
     return bestPid;
   }
   
-  private selectByLongestWaiting(readyQueue: number[], processes: Map<number, Process>): number | null {
+  private selectByLongestWaiting(
+    readyQueue: number[], 
+    processes: Map<number, Process>,
+    currentTime: number,
+    queueEntryTimes: Map<number, number>,
+    queueEntryOrder: Map<number, number>
+  ): number | null {
     if (readyQueue.length === 0) return null;
     
     let bestPid = readyQueue[0];
-    let bestWaiting = processes.get(bestPid)!.waitingTime;
+    let bestEntryTime = queueEntryTimes.get(bestPid) ?? 0;
+    let bestOrder = queueEntryOrder.get(bestPid) ?? 0;
     
     for (const pid of readyQueue) {
-      const p = processes.get(pid)!;
-      if (p.waitingTime > bestWaiting || (p.waitingTime === bestWaiting && pid < bestPid)) {
-        bestWaiting = p.waitingTime;
+      const entryTime = queueEntryTimes.get(pid) ?? 0;
+      const order = queueEntryOrder.get(pid) ?? 0;
+      const pidWaitTime = currentTime - entryTime;
+      const bestWaitTime = currentTime - bestEntryTime;
+      if (pidWaitTime > bestWaitTime || 
+          (pidWaitTime === bestWaitTime && order < bestOrder)) {
+        bestEntryTime = entryTime;
+        bestOrder = order;
         bestPid = pid;
       }
     }
@@ -410,12 +443,17 @@ export class CustomSchedulerService {
   private checkArrivals(
     processes: Map<number, Process>,
     readyQueue: number[],
-    currentTime: number
+    currentTime: number,
+    queueEntryTimes: Map<number, number>,
+    queueEntryOrder: Map<number, number>,
+    orderCounter: { value: number }
   ): void {
     processes.forEach((proc, pid) => {
       if (proc.status === 'not_arrived' && proc.arrivalTime <= currentTime) {
         proc.status = 'ready';
         readyQueue.push(pid);
+        queueEntryTimes.set(pid, currentTime);
+        queueEntryOrder.set(pid, orderCounter.value++);
       }
     });
   }
@@ -440,7 +478,11 @@ export class CustomSchedulerService {
   private updateWaitingProcesses(
     processes: Map<number, Process>,
     waitingQueue: number[],
-    readyQueue: number[]
+    readyQueue: number[],
+    queueEntryTimes: Map<number, number>,
+    queueEntryOrder: Map<number, number>,
+    orderCounter: { value: number },
+    currentTime: number
   ): void {
     const completedIo: number[] = [];
     
@@ -464,6 +506,8 @@ export class CustomSchedulerService {
       proc.cpuExecutedInSlice = 0;
       
       readyQueue.push(pid);
+      queueEntryTimes.set(pid, currentTime);
+      queueEntryOrder.set(pid, orderCounter.value++);
     });
   }
   
