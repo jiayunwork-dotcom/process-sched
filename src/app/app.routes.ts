@@ -9,5 +9,9 @@ export const routes: Routes = [
   { 
     path: 'levels', 
     loadComponent: () => import('./components/levels/levels.component').then(m => m.LevelsComponent)
+  },
+  { 
+    path: 'custom-scheduler', 
+    loadComponent: () => import('./components/custom-scheduler/custom-scheduler.component').then(m => m.CustomSchedulerComponent)
   }
 ];

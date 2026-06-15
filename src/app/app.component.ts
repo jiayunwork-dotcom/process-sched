@@ -13,6 +13,7 @@ import { CommonModule } from '@angular/common';
         <nav class="nav-tabs">
           <a routerLink="/simulator" routerLinkActive="active">模拟器</a>
           <a routerLink="/levels" routerLinkActive="active">教学关卡</a>
+          <a routerLink="/custom-scheduler" routerLinkActive="active">策略编辑器</a>
         </nav>
       </header>
       <main class="app-main">
