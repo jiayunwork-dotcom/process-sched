@@ -92,7 +92,7 @@ type SortOrder = 'asc' | 'desc';
                 <line [attr.x1]="waitingChartPadding.left" [attr.y1]="waitingChartHeight - waitingChartPadding.bottom" [attr.x2]="waitingChartWidth - waitingChartPadding.right" [attr.y2]="waitingChartHeight - waitingChartPadding.bottom" stroke="#94a3b8" stroke-width="1.5"/>
                 <line [attr.x1]="waitingChartPadding.left" [attr.y1]="waitingChartPadding.top + 20" [attr.x2]="waitingChartPadding.left" [attr.y2]="waitingChartHeight - waitingChartPadding.bottom" stroke="#94a3b8" stroke-width="1.5"/>
                 <text [attr.x]="waitingChartWidth / 2" [attr.y]="waitingChartHeight - 4" text-anchor="middle" class="axis-label-x">进程名称</text>
-                <text [attr.x]="12" [attr.y]="(waitingChartHeight - waitingChartPadding.top - waitingChartPadding.bottom) / 2 + waitingChartPadding.top + 20" text-anchor="middle" class="axis-label-y" transform="rotate(-90, 12, ' + ((waitingChartHeight - waitingChartPadding.top - waitingChartPadding.bottom) / 2 + waitingChartPadding.top + 20) + ')">等待时间</text>
+                <text [attr.x]="waitingAxisLabelX" [attr.y]="waitingAxisLabelY" text-anchor="middle" class="axis-label-y" [attr.transform]="waitingAxisLabelTransform">等待时间</text>
                 <ng-container *ngFor="let tick of waitingYTicks">
                   <line [attr.x1]="waitingChartPadding.left - 4" [attr.y1]="tick.y" [attr.x2]="waitingChartPadding.left" [attr.y2]="tick.y" stroke="#94a3b8" stroke-width="1"/>
                   <text [attr.x]="waitingChartPadding.left - 8" [attr.y]="tick.y + 4" text-anchor="end" class="tick-text">{{ tick.value }}</text>
@@ -128,7 +128,7 @@ type SortOrder = 'asc' | 'desc';
                 <line [attr.x1]="turnaroundChartPadding.left" [attr.y1]="turnaroundChartPadding.top + 20" [attr.x2]="turnaroundChartWidth - turnaroundChartPadding.right" [attr.y2]="turnaroundChartPadding.top + 20" stroke="#94a3b8" stroke-width="1.5"/>
                 <line [attr.x1]="turnaroundChartPadding.left" [attr.y1]="turnaroundChartPadding.top + 20" [attr.x2]="turnaroundChartPadding.left" [attr.y2]="turnaroundChartHeight - turnaroundChartPadding.bottom" stroke="#94a3b8" stroke-width="1.5"/>
                 <text [attr.x]="turnaroundChartWidth / 2" [attr.y]="turnaroundChartHeight - 4" text-anchor="middle" class="axis-label-x">周转时间</text>
-                <text [attr.x]="12" [attr.y]="(turnaroundChartHeight - turnaroundChartPadding.top - turnaroundChartPadding.bottom) / 2 + turnaroundChartPadding.top + 20" text-anchor="middle" class="axis-label-y" transform="rotate(-90, 12, ' + ((turnaroundChartHeight - turnaroundChartPadding.top - turnaroundChartPadding.bottom) / 2 + turnaroundChartPadding.top + 20) + ')">进程名称</text>
+                <text [attr.x]="turnaroundAxisLabelX" [attr.y]="turnaroundAxisLabelY" text-anchor="middle" class="axis-label-y" [attr.transform]="turnaroundAxisLabelTransform">进程名称</text>
                 <ng-container *ngFor="let tick of turnaroundXTicks">
                   <line [attr.x1]="tick.x" [attr.y1]="turnaroundChartPadding.top + 20 + 4" [attr.x2]="tick.x" [attr.y2]="turnaroundChartPadding.top + 20" stroke="#94a3b8" stroke-width="1"/>
                   <text [attr.x]="tick.x" [attr.y]="turnaroundChartHeight - turnaroundChartPadding.bottom + 16" text-anchor="middle" class="tick-text">{{ tick.value }}</text>
@@ -349,12 +349,18 @@ export class StatsPanelComponent implements OnChanges {
   waitingChartPadding = { top: 40, right: 30, bottom: 44, left: 60 };
   waitingBars: { x: number; y: number; width: number; height: number; color: string; value: number; label: string }[] = [];
   waitingYTicks: { y: number; value: number }[] = [];
+  waitingAxisLabelX = 16;
+  waitingAxisLabelY = 160;
+  waitingAxisLabelTransform = 'rotate(-90, 16, 160)';
   
   turnaroundChartWidth = 520;
   turnaroundChartHeight = 320;
   turnaroundChartPadding = { top: 40, right: 60, bottom: 44, left: 80 };
   turnaroundBars: { x: number; y: number; width: number; height: number; color: string; value: number; label: string }[] = [];
   turnaroundXTicks: { x: number; value: number }[] = [];
+  turnaroundAxisLabelX = 16;
+  turnaroundAxisLabelY = 160;
+  turnaroundAxisLabelTransform = 'rotate(-90, 16, 160)';
   
   barTooltipVisible = false;
   barTooltipX = 0;
@@ -434,6 +440,10 @@ export class StatsPanelComponent implements OnChanges {
     const chartTop = this.waitingChartPadding.top + 20;
     const chartBottom = this.waitingChartHeight - this.waitingChartPadding.bottom;
     
+    this.waitingAxisLabelX = 18;
+    this.waitingAxisLabelY = chartTop + innerHeight / 2;
+    this.waitingAxisLabelTransform = `rotate(-90, ${this.waitingAxisLabelX}, ${this.waitingAxisLabelY})`;
+    
     const n = this.processes.length;
     const barGap = 12;
     const barWidth = Math.max(18, Math.min(60, (innerWidth - barGap * (n + 1)) / n));
@@ -481,6 +491,10 @@ export class StatsPanelComponent implements OnChanges {
     const chartLeft = this.turnaroundChartPadding.left;
     const chartTop = this.turnaroundChartPadding.top + 20;
     const chartRight = chartLeft + innerWidth;
+    
+    this.turnaroundAxisLabelX = 18;
+    this.turnaroundAxisLabelY = chartTop + innerHeight / 2;
+    this.turnaroundAxisLabelTransform = `rotate(-90, ${this.turnaroundAxisLabelX}, ${this.turnaroundAxisLabelY})`;
     
     const sorted = [...this.processes].sort((a, b) => b.turnaroundTime - a.turnaroundTime);
     const n = sorted.length;
